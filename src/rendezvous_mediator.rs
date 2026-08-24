@@ -342,6 +342,12 @@ impl RendezvousMediator {
         match msg {
             Some(rendezvous_message::Union::RegisterPeerResponse(rpr)) => {
                 update_latency();
+                if !rpr.authorization_error.is_empty() {
+                    log::warn!("RelaisDesk registration was refused: {}", rpr.authorization_error);
+                    Config::set_key_confirmed(false);
+                    Config::set_host_key_confirmed(&self.host_prefix, false);
+                    return Ok(());
+                }
                 if rpr.request_pk {
                     log::info!("request_pk received from {}", self.host);
                     self.register_pk(sink).await?;
@@ -373,6 +379,16 @@ impl RendezvousMediator {
                         Config::set_host_key_confirmed(&self.host_prefix, false);
                         #[cfg(target_os = "android")]
                         notify_android_needs_deploy();
+                    }
+                    Ok(register_pk_response::Result::AUTHORIZATION_FAILED) => {
+                        log::warn!("RelaisDesk registration authorization failed");
+                        Config::set_key_confirmed(false);
+                        Config::set_host_key_confirmed(&self.host_prefix, false);
+                    }
+                    Ok(register_pk_response::Result::AUTHORIZATION_OVERUSE) => {
+                        log::warn!("RelaisDesk device limit reached");
+                        Config::set_key_confirmed(false);
+                        Config::set_host_key_confirmed(&self.host_prefix, false);
                     }
                     _ => {
                         log::error!("unknown RegisterPkResponse");
@@ -765,13 +781,21 @@ impl RendezvousMediator {
         let pk = Config::get_key_pair().1;
         let uuid = hbb_common::get_uuid();
         let id = Config::get_id();
-        msg_out.set_register_pk(RegisterPk {
-            id,
+        let mut request = RegisterPk {
+            id: id.clone(),
             uuid: uuid.into(),
             pk: pk.into(),
             no_register_device: Config::no_register_device(),
             ..Default::default()
-        });
+        };
+        if let Some(auth) = crate::relaisdesk_auth::authorization(&format!("register-pk:{id}"))?
+        {
+            request.authorization_token = auth.token;
+            request.authorization_timestamp = auth.timestamp;
+            request.authorization_nonce = auth.nonce;
+            request.authorization_signature = auth.signature.into();
+        }
+        msg_out.set_register_pk(request);
         socket.send(&msg_out).await?;
         SENT_REGISTER_PK.store(true, Ordering::SeqCst);
         Ok(())
@@ -813,11 +837,18 @@ impl RendezvousMediator {
         );
         let mut msg_out = Message::new();
         let serial = Config::get_serial();
-        msg_out.set_register_peer(RegisterPeer {
-            id,
+        let mut request = RegisterPeer {
+            id: id.clone(),
             serial,
             ..Default::default()
-        });
+        };
+        if let Some(auth) = crate::relaisdesk_auth::authorization(&format!("register:{id}"))? {
+            request.authorization_token = auth.token;
+            request.authorization_timestamp = auth.timestamp;
+            request.authorization_nonce = auth.nonce;
+            request.authorization_signature = auth.signature.into();
+        }
+        msg_out.set_register_peer(request);
         socket.send(&msg_out).await?;
         Ok(())
     }

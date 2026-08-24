@@ -471,6 +471,7 @@ impl Connection {
         id: i32,
         server: super::ServerPtrWeak,
         meta: super::ConnectionMeta,
+        mut authorization_guard: Option<crate::client::HealthCheckGuard>,
     ) {
         let super::ConnectionMeta {
             control_permissions,
@@ -690,6 +691,18 @@ impl Connection {
         loop {
             tokio::select! {
                 // biased; // video has higher priority // causing test_delay_timer failed while transferring big file
+
+                authorization_failure = async {
+                    if let Some(guard) = authorization_guard.as_mut() {
+                        guard.failed().await
+                    } else {
+                        std::future::pending::<String>().await
+                    }
+                } => {
+                    conn.send_close_reason_no_retry(&authorization_failure).await;
+                    conn.on_close("RelaisDesk authorization expired", false).await;
+                    break;
+                }
 
                 Some(data) = rx_from_cm.recv() => {
                     match data {

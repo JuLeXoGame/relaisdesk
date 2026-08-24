@@ -234,11 +234,22 @@ impl<T: InvokeUiSession> Remote<T> {
                     crate::rustdesk_interval(time::interval(Duration::new(1, 0)));
                 let mut fps_instant = Instant::now();
 
-                let _keep_it = client::hc_connection(feedback, rendezvous_server, token).await;
+                let mut authorization_guard =
+                    client::hc_connection(feedback, rendezvous_server, token).await;
                 let mut last_recv_time = Instant::now();
 
                 loop {
                     tokio::select! {
+                        reason = async {
+                            if let Some(guard) = authorization_guard.as_mut() {
+                                guard.failed().await
+                            } else {
+                                std::future::pending::<String>().await
+                            }
+                        } => {
+                            self.handler.msgbox("error", "RelaisDesk", &reason, "");
+                            break;
+                        }
                         res = peer.next() => {
                             if let Some(res) = res {
                                 match res {

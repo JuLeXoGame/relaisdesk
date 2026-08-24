@@ -71,10 +71,10 @@ pub async fn listen(
                 let mut forward = Framed::new(forward, BytesCodec::new());
                 let mut close_port_forward = false;
                 match connect_and_login(&id, &password, &mut ui_receiver, interface.clone(), &mut forward, key, token, is_rdp, &mut close_port_forward).await {
-                    Ok(Some(stream)) => {
+                    Ok(Some((stream, authorization_guard))) => {
                         let interface = interface.clone();
                         tokio::spawn(async move {
-                            if let Err(err) = run_forward(forward, stream).await {
+                            if let Err(err) = run_forward(forward, stream, authorization_guard).await {
                                 interface.msgbox("error", "Error", &err.to_string(), "");
                             }
                             log::info!("connection from {:?} closed", addr);
@@ -116,7 +116,7 @@ async fn connect_and_login(
     token: &str,
     is_rdp: bool,
     close_port_forward: &mut bool,
-) -> ResultType<Option<Stream>> {
+) -> ResultType<Option<(Stream, Option<HealthCheckGuard>)>> {
     let conn_type = if is_rdp {
         ConnType::RDP
     } else {
@@ -134,10 +134,19 @@ async fn connect_and_login(
     let mut buffer = Vec::new();
     let mut received = false;
 
-    let _keep_it = hc_connection(feedback, rendezvous_server, token).await;
+    let mut authorization_guard = hc_connection(feedback, rendezvous_server, token).await;
 
     loop {
         tokio::select! {
+            reason = async {
+                if let Some(guard) = authorization_guard.as_mut() {
+                    guard.failed().await
+                } else {
+                    std::future::pending::<String>().await
+                }
+            } => {
+                bail!(reason);
+            },
             res = timeout(READ_TIMEOUT, stream.next()) => match res {
                 Err(_) => {
                     bail!("Timeout");
@@ -203,15 +212,28 @@ async fn connect_and_login(
     if !buffer.is_empty() {
         allow_err!(stream.send_bytes(buffer.into()).await);
     }
-    Ok(Some(stream))
+    Ok(Some((stream, authorization_guard)))
 }
 
-async fn run_forward(forward: Framed<TcpStream, BytesCodec>, stream: Stream) -> ResultType<()> {
+async fn run_forward(
+    forward: Framed<TcpStream, BytesCodec>,
+    stream: Stream,
+    mut authorization_guard: Option<HealthCheckGuard>,
+) -> ResultType<()> {
     log::info!("new port forwarding connection started");
     let mut forward = forward;
     let mut stream = stream;
     loop {
         tokio::select! {
+            reason = async {
+                if let Some(guard) = authorization_guard.as_mut() {
+                    guard.failed().await
+                } else {
+                    std::future::pending::<String>().await
+                }
+            } => {
+                bail!(reason);
+            },
             res = forward.next() => {
                 if let Some(Ok(bytes)) = res {
                     allow_err!(stream.send_bytes(bytes.into()).await);

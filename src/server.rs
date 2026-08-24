@@ -268,7 +268,25 @@ pub async fn create_tcp_connection(
         }
         log::info!("wake up macos");
     }
-    Connection::start(addr, stream, id, Arc::downgrade(&server), meta).await;
+    let authorization_guard = if crate::relaisdesk_auth::is_configured() {
+        let rendezvous_server = Config::get_rendezvous_server();
+        let guard = crate::client::hc_connection(0, rendezvous_server, "").await;
+        if guard.is_none() {
+            bail!("RelaisDesk authorization channel is unavailable");
+        }
+        guard
+    } else {
+        None
+    };
+    Connection::start(
+        addr,
+        stream,
+        id,
+        Arc::downgrade(&server),
+        meta,
+        authorization_guard,
+    )
+    .await;
     Ok(())
 }
 
@@ -329,11 +347,18 @@ async fn create_relay_connection_(
     .await?;
     let mut msg_out = RendezvousMessage::new();
     let licence_key = crate::get_key(true).await;
-    msg_out.set_request_relay(RequestRelay {
+    let mut relay_request = RequestRelay {
         licence_key,
-        uuid,
+        uuid: uuid.clone(),
         ..Default::default()
-    });
+    };
+    if let Some(auth) = crate::relaisdesk_auth::authorization(&format!("relay:{uuid}"))? {
+        relay_request.token = auth.token;
+        relay_request.authorization_timestamp = auth.timestamp;
+        relay_request.authorization_nonce = auth.nonce;
+        relay_request.authorization_signature = auth.signature.into();
+    }
+    msg_out.set_request_relay(relay_request);
     stream.send(&msg_out).await?;
     create_tcp_connection(server, stream, peer_addr, secure, meta).await?;
     Ok(())

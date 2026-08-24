@@ -459,7 +459,7 @@ impl Client {
         };
         let udp_nat_port = udp.1.map(|x| *x.lock().unwrap()).unwrap_or(0);
         let punch_type = if udp_nat_port > 0 { "UDP" } else { "TCP" };
-        msg_out.set_punch_hole_request(PunchHoleRequest {
+        let mut punch_request = PunchHoleRequest {
             id: peer.to_owned(),
             token: token.to_owned(),
             nat_type: nat_type.into(),
@@ -471,7 +471,7 @@ impl Client {
             socket_addr_v6: ipv6.1.unwrap_or_default(),
             switch_code,
             ..Default::default()
-        });
+        };
         for i in 1..=3 {
             log::info!(
                 "#{} {} punch attempt with {}, id: {}",
@@ -480,6 +480,15 @@ impl Client {
                 my_addr,
                 peer
             );
+            if let Some(auth) =
+                crate::relaisdesk_auth::authorization(&format!("punch:{peer}"))?
+            {
+                punch_request.token = auth.token;
+                punch_request.authorization_timestamp = auth.timestamp;
+                punch_request.authorization_nonce = auth.nonce;
+                punch_request.authorization_signature = auth.signature.into();
+            }
+            msg_out.set_punch_hole_request(punch_request.clone());
             socket.send(&msg_out).await?;
             // below timeout should not bigger than hbbs's connection timeout.
             if let Some(msg_in) =
@@ -557,6 +566,7 @@ impl Client {
                             rr.uuid,
                             rr.relay_server,
                             &key,
+                            &token,
                             conn_type,
                             my_addr.is_ipv4(),
                         );
@@ -874,7 +884,7 @@ impl Client {
                 relay_server,
                 secure,
             );
-            msg_out.set_request_relay(RequestRelay {
+            let mut relay_request = RequestRelay {
                 id: peer.to_owned(),
                 token: token.to_owned(),
                 uuid: uuid.clone(),
@@ -882,7 +892,16 @@ impl Client {
                 secure,
                 switch_code: switch_code.to_owned(),
                 ..Default::default()
-            });
+            };
+            if let Some(auth) = crate::relaisdesk_auth::authorization(&format!(
+                "relay-request:{peer}:{uuid}"
+            ))? {
+                relay_request.token = auth.token;
+                relay_request.authorization_timestamp = auth.timestamp;
+                relay_request.authorization_nonce = auth.nonce;
+                relay_request.authorization_signature = auth.signature.into();
+            }
+            msg_out.set_request_relay(relay_request);
             socket.send(&msg_out).await?;
 
             if let Some(msg_in) =
@@ -900,7 +919,7 @@ impl Client {
         if !succeed {
             bail!("Timeout");
         }
-        Self::create_relay(peer, uuid, relay_server, key, conn_type, ipv4).await
+        Self::create_relay(peer, uuid, relay_server, key, token, conn_type, ipv4).await
     }
 
     /// Create a relay connection to the server.
@@ -909,6 +928,7 @@ impl Client {
         uuid: String,
         relay_server: String,
         key: &str,
+        token: &str,
         conn_type: ConnType,
         ipv4: bool,
     ) -> ResultType<Stream> {
@@ -919,13 +939,23 @@ impl Client {
         .await
         .with_context(|| "Failed to connect to relay server")?;
         let mut msg_out = RendezvousMessage::new();
-        msg_out.set_request_relay(RequestRelay {
+        let mut relay_request = RequestRelay {
             licence_key: key.to_owned(),
             id: peer.to_owned(),
-            uuid,
+            uuid: uuid.clone(),
+            token: token.to_owned(),
             conn_type: conn_type.into(),
             ..Default::default()
-        });
+        };
+        if let Some(auth) =
+            crate::relaisdesk_auth::authorization(&format!("relay:{uuid}"))?
+        {
+            relay_request.token = auth.token;
+            relay_request.authorization_timestamp = auth.timestamp;
+            relay_request.authorization_nonce = auth.nonce;
+            relay_request.authorization_signature = auth.signature.into();
+        }
+        msg_out.set_request_relay(relay_request);
         conn.send(&msg_out).await?;
         Ok(conn)
     }
@@ -4118,28 +4148,61 @@ mod retry_tests {
     }
 }
 
+pub struct HealthCheckGuard {
+    _cancel: tokio::sync::mpsc::UnboundedSender<()>,
+    failure_rx: tokio::sync::mpsc::UnboundedReceiver<String>,
+}
+
+impl HealthCheckGuard {
+    pub async fn failed(&mut self) -> String {
+        self.failure_rx
+            .recv()
+            .await
+            .unwrap_or_else(|| "RelaisDesk authorization channel closed".to_owned())
+    }
+}
+
 pub async fn hc_connection(
     feedback: i32,
     rendezvous_server: String,
     token: &str,
-) -> Option<tokio::sync::mpsc::UnboundedSender<()>> {
-    if feedback == 0 || rendezvous_server.is_empty() || token.is_empty() {
+) -> Option<HealthCheckGuard> {
+    let enforce_relaisdesk = crate::relaisdesk_auth::is_configured();
+    if rendezvous_server.is_empty()
+        || (!enforce_relaisdesk && (feedback == 0 || token.is_empty()))
+    {
         return None;
     }
-    let (tx, rx) = unbounded_channel::<()>();
+    let (cancel_tx, cancel_rx) = unbounded_channel::<()>();
+    let (failure_tx, failure_rx) = unbounded_channel::<String>();
     let token = token.to_owned();
     tokio::spawn(async move {
-        allow_err!(hc_connection_(rendezvous_server, rx, token).await);
+        if let Err(err) = hc_connection_(rendezvous_server, cancel_rx, token, enforce_relaisdesk).await
+        {
+            if enforce_relaisdesk {
+                log::warn!("RelaisDesk authorization channel failed: {}", err);
+                let _ = failure_tx.send("L’autorisation RelaisDesk a expiré ou n’est plus joignable".to_owned());
+            }
+        }
     });
-    Some(tx)
+    Some(HealthCheckGuard {
+        _cancel: cancel_tx,
+        failure_rx,
+    })
 }
 
 async fn hc_connection_(
     rendezvous_server: String,
     mut rx: UnboundedReceiver<()>,
     token: String,
+    enforce_relaisdesk: bool,
 ) -> ResultType<()> {
-    let mut timer = crate::rustdesk_interval(interval(crate::TIMER_OUT));
+    let check_interval = if enforce_relaisdesk {
+        Duration::from_secs(10)
+    } else {
+        crate::TIMER_OUT
+    };
+    let mut timer = crate::rustdesk_interval(interval(check_interval));
     let mut last_recv_msg = Instant::now();
     let mut keep_alive = crate::DEFAULT_KEEP_ALIVE;
 
@@ -4147,12 +4210,6 @@ async fn hc_connection_(
     let mut conn = connect_tcp(host.clone(), CONNECT_TIMEOUT).await?;
     let key = crate::get_key(true).await;
     crate::secure_tcp(&mut conn, &key).await?;
-    let mut msg_out = RendezvousMessage::new();
-    msg_out.set_hc(HealthCheck {
-        token,
-        ..Default::default()
-    });
-    conn.send(&msg_out).await?;
     loop {
         tokio::select! {
             res = rx.recv() => {
@@ -4170,6 +4227,11 @@ async fn hc_connection_(
                 }
                 let msg = RendezvousMessage::parse_from_bytes(&bytes)?;
                 match msg.union {
+                    Some(rendezvous_message::Union::HcResponse(response)) => {
+                        if !response.valid {
+                            bail!("RelaisDesk authorization rejected");
+                        }
+                    }
                     Some(rendezvous_message::Union::RegisterPkResponse(rpr)) => {
                         if rpr.keep_alive > 0 {
                             keep_alive = rpr.keep_alive * 1000;
@@ -4180,8 +4242,22 @@ async fn hc_connection_(
                 }
             }
             _  = timer.tick() => {
+                let mut request = HealthCheck {
+                    token: token.clone(),
+                    ..Default::default()
+                };
+                if let Some(auth) = crate::relaisdesk_auth::authorization("health")? {
+                    request.token = auth.token;
+                    request.authorization_timestamp = auth.timestamp;
+                    request.authorization_nonce = auth.nonce;
+                    request.authorization_signature = auth.signature.into();
+                }
+                let mut msg_out = RendezvousMessage::new();
+                msg_out.set_hc(request);
+                conn.send(&msg_out).await?;
                 // https://www.emqx.com/en/blog/mqtt-keep-alive
-                if last_recv_msg.elapsed().as_millis() as u64 > keep_alive as u64 * 3 / 2 {
+                let timeout_ms = if enforce_relaisdesk { 30_000 } else { keep_alive as u64 * 3 / 2 };
+                if last_recv_msg.elapsed().as_millis() as u64 > timeout_ms {
                     bail!("HC connection is timeout");
                 }
             }
