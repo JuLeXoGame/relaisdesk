@@ -4,12 +4,8 @@ use crate::client::{
     LOGIN_MSG_DESKTOP_SESSION_NOT_READY, LOGIN_MSG_DESKTOP_XORG_NOT_FOUND,
     LOGIN_MSG_DESKTOP_XSESSION_FAILED, LOGIN_MSG_PASSWORD_WRONG,
 };
-use hbb_common::{
-    allow_err, bail, log,
-    rand::prelude::*,
-    tokio::time,
-    users::{get_user_by_name, os::unix::UserExt, User},
-};
+use hbb_common::{allow_err, bail, log, rand::prelude::*, tokio::time};
+use nix::unistd::User;
 use pam;
 use std::{
     collections::HashMap,
@@ -194,7 +190,10 @@ pub fn try_start_desktop(_username: &str, _passsword: &str) -> String {
     }
 }
 
-fn try_start_x_session(username: &str, password: &str) -> Result<(String, bool), XSessionStartError> {
+fn try_start_x_session(
+    username: &str,
+    password: &str,
+) -> Result<(String, bool), XSessionStartError> {
     let mut desktop_manager = DESKTOP_MANAGER.lock().unwrap();
     if let Some(desktop_manager) = &mut (*desktop_manager) {
         if let Some(seat0_username) = desktop_manager.get_supported_display_seat0_username() {
@@ -305,10 +304,12 @@ impl DesktopManager {
         username: &str,
         password: &str,
     ) -> Result<(), XSessionStartError> {
-        match get_user_by_name(username) {
-            Some(userinfo) => {
-                let mut client = pam::Client::with_password(&pam_get_service_name())
-                    .map_err(|e| XSessionStartError::env(format!("failed to init pam client, {}", e)))?;
+        match User::from_name(username) {
+            Ok(Some(userinfo)) => {
+                let mut client =
+                    pam::Client::with_password(&pam_get_service_name()).map_err(|e| {
+                        XSessionStartError::env(format!("failed to init pam client, {}", e))
+                    })?;
                 client
                     .conversation_mut()
                     .set_credentials(username, password);
@@ -324,26 +325,24 @@ impl DesktopManager {
                                 self.child_username = username.to_string();
                                 Ok(())
                             }
-                            Err(e) => {
-                                Err(XSessionStartError::env(format!(
-                                    "failed to start x session, {}",
-                                    e
-                                )))
-                            }
+                            Err(e) => Err(XSessionStartError::env(format!(
+                                "failed to start x session, {}",
+                                e
+                            ))),
                         }
                     }
-                    Err(_e) => {
-                        Err(XSessionStartError::auth(
-                            XSESSION_AUTH_FAILURE_DETAIL.to_owned(),
-                        ))
-                    }
+                    Err(_e) => Err(XSessionStartError::auth(
+                        XSESSION_AUTH_FAILURE_DETAIL.to_owned(),
+                    )),
                 }
             }
-            None => {
-                Err(XSessionStartError::auth(
-                    XSESSION_AUTH_FAILURE_DETAIL.to_owned(),
-                ))
-            }
+            Ok(None) => Err(XSessionStartError::auth(
+                XSESSION_AUTH_FAILURE_DETAIL.to_owned(),
+            )),
+            Err(err) => Err(XSessionStartError::env(format!(
+                "failed to look up local user, {}",
+                err
+            ))),
         }
     }
 
@@ -376,18 +375,15 @@ impl DesktopManager {
         let display_num = Self::get_avail_display()?;
         // "xServer_ip:display_num.screen_num"
 
-        let uid = userinfo.uid();
-        let gid = userinfo.primary_group_id();
+        let uid = userinfo.uid.as_raw();
+        let gid = userinfo.gid.as_raw();
         let envs = HashMap::from([
-            ("SHELL", userinfo.shell().to_string_lossy().to_string()),
+            ("SHELL", userinfo.shell.to_string_lossy().to_string()),
             ("PATH", "/sbin:/bin:/usr/bin:/usr/local/bin".to_owned()),
             ("USER", username.to_string()),
-            ("UID", userinfo.uid().to_string()),
-            ("HOME", userinfo.home_dir().to_string_lossy().to_string()),
-            (
-                "XDG_RUNTIME_DIR",
-                format!("/run/user/{}", userinfo.uid().to_string()),
-            ),
+            ("UID", uid.to_string()),
+            ("HOME", userinfo.dir.to_string_lossy().to_string()),
+            ("XDG_RUNTIME_DIR", format!("/run/user/{uid}")),
             // ("DISPLAY", self.display.clone()),
             // ("XAUTHORITY", self.xauth.clone()),
             // (ENV_DESKTOP_PROTOCOL, XProtocol::X11.to_string()),
@@ -856,7 +852,11 @@ impl DesktopManager {
         if let Ok(content) = std::fs::read_to_string(&lock) {
             if let Ok(pid) = content.trim().parse::<i32>() {
                 if Self::pid_alive(pid) {
-                    log::info!("X display {} still held by pid {}, leaving its files", display_num, pid);
+                    log::info!(
+                        "X display {} still held by pid {}, leaving its files",
+                        display_num,
+                        pid
+                    );
                     return;
                 }
             }
@@ -1159,13 +1159,22 @@ mod tests {
             ))
         );
         // an empty scope still carries the display so its stale X lock can be cleaned
-        assert_eq!(DesktopManager::parse_orphaned_marker(";5;abc-123"), Some(("", 5, "abc-123")));
+        assert_eq!(
+            DesktopManager::parse_orphaned_marker(";5;abc-123"),
+            Some(("", 5, "abc-123"))
+        );
         // an empty boot id never matches the live one, so the scope reap is skipped
-        assert_eq!(DesktopManager::parse_orphaned_marker("/scope;5;"), Some(("/scope", 5, "")));
+        assert_eq!(
+            DesktopManager::parse_orphaned_marker("/scope;5;"),
+            Some(("/scope", 5, ""))
+        );
         assert_eq!(DesktopManager::parse_orphaned_marker(""), None);
         assert_eq!(DesktopManager::parse_orphaned_marker("garbage"), None);
         // the pre-boot-id two-field format no longer parses, recovery just skips it
         assert_eq!(DesktopManager::parse_orphaned_marker("/scope;7"), None);
-        assert_eq!(DesktopManager::parse_orphaned_marker("/scope;notnum;abc"), None);
+        assert_eq!(
+            DesktopManager::parse_orphaned_marker("/scope;notnum;abc"),
+            None
+        );
     }
 }

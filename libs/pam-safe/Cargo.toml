@@ -1,0 +1,19 @@
+[package]
+name = "pam"
+version = "0.7.0-relaydesk.1"
+edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "RelaisDesk-maintained PAM wrapper derived from rustdesk-org/pam"
+repository = "https://github.com/rustdesk-org/pam"
+
+[features]
+default = ["client"]
+functions = []
+client = ["nix"]
+module = []
+
+[dependencies]
+libc = "0.2"
+nix = { version = "0.29", features = ["user"], optional = true }
+pam-macros = "=0.0.3"
+pam-sys = { git = "https://github.com/rustdesk-org/pam-sys", branch = "fix/v1.0.0-alpha4_gnuc_va_list" }

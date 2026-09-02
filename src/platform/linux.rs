@@ -10,9 +10,9 @@ use hbb_common::{
     log,
     message_proto::{DisplayInfo, Resolution},
     regex::{Captures, Regex},
-    users::{get_user_by_name, os::unix::UserExt},
 };
 use libxdo_sys::{self, xdo_t, Window};
+use nix::unistd::User;
 use std::{
     cell::RefCell,
     ffi::{OsStr, OsString},
@@ -696,14 +696,9 @@ fn try_start_server_(desktop: Option<&Desktop>) -> ResultType<Option<Child>> {
             if !desktop.dbus.is_empty() {
                 envs.push(("DBUS_SESSION_BUS_ADDRESS", desktop.dbus.clone()));
             }
-            if let Ok(forced_display_server) =
-                std::env::var("RUSTDESK_FORCED_DISPLAY_SERVER")
-            {
+            if let Ok(forced_display_server) = std::env::var("RUSTDESK_FORCED_DISPLAY_SERVER") {
                 if !forced_display_server.is_empty() {
-                    envs.push((
-                        "RUSTDESK_FORCED_DISPLAY_SERVER",
-                        forced_display_server,
-                    ));
+                    envs.push(("RUSTDESK_FORCED_DISPLAY_SERVER", forced_display_server));
                 }
             }
             envs.push((
@@ -1135,17 +1130,20 @@ pub fn get_active_username() -> String {
 }
 
 pub fn get_user_home_by_name(username: &str) -> Option<PathBuf> {
-    return match get_user_by_name(username) {
-        None => None,
-        Some(user) => {
-            let home = user.home_dir();
-            if Path::is_dir(home) {
-                Some(PathBuf::from(home))
+    match User::from_name(username) {
+        Ok(Some(user)) => {
+            if Path::is_dir(&user.dir) {
+                Some(user.dir)
             } else {
                 None
             }
         }
-    };
+        Ok(None) => None,
+        Err(err) => {
+            log::warn!("Failed to look up local user {username}: {err}");
+            None
+        }
+    }
 }
 
 pub fn get_active_user_home() -> Option<PathBuf> {
@@ -2202,11 +2200,8 @@ impl SessionIdleInhibit {
         let mut refused = Vec::new();
         for target in SESSION_INHIBIT_TARGETS {
             let res: Result<(u32,), dbus::Error> = {
-                let proxy = conn.with_proxy(
-                    target.dest,
-                    target.path,
-                    std::time::Duration::from_secs(3),
-                );
+                let proxy =
+                    conn.with_proxy(target.dest, target.path, std::time::Duration::from_secs(3));
                 if target.gnome_shape {
                     // Inhibit(s app_id, u xid, s reason, u flags) -> u cookie; xid 0 = no window.
                     proxy.method_call(
@@ -2261,11 +2256,11 @@ impl Drop for SessionIdleInhibit {
     }
 }
 
-pub struct WakeLock(Option<keepawake::AwakeHandle>, Option<SessionIdleInhibit>);
+pub struct WakeLock(Option<keepawake::KeepAwake>, Option<SessionIdleInhibit>);
 
 impl WakeLock {
     pub fn new(display: bool, idle: bool, sleep: bool) -> Self {
-        match keepawake::Builder::new()
+        match keepawake::Builder::default()
             .display(display)
             .idle(idle)
             .sleep(sleep)
@@ -2280,7 +2275,7 @@ impl WakeLock {
                 // if it fails, losing the logind idle/sleep inhibits that stop the HOST suspending
                 // mid-session. Re-ask without the display part: those are on the system bus.
                 let system = if idle || sleep {
-                    match keepawake::Builder::new()
+                    match keepawake::Builder::default()
                         .display(false)
                         .idle(idle)
                         .sleep(sleep)

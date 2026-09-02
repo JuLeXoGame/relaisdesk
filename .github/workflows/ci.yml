@@ -82,7 +82,7 @@ jobs:
           # - { target: x86_64-pc-windows-gnu       , os: windows-2022                  }
           # - { target: x86_64-pc-windows-msvc      , os: windows-2022                  }
           # - { target: aarch64-pc-windows-msvc     , os: windows-11-arm                }
-          - { target: x86_64-unknown-linux-gnu    , os: ubuntu-24.04                  }
+          - { target: x86_64-unknown-linux-gnu    , os: ubuntu-24.04, use-cross: false }
           # - { target: x86_64-unknown-linux-musl   , os: ubuntu-20.04, use-cross: true }
     steps:
     - name: Free Disk Space (Ubuntu)
@@ -176,11 +176,7 @@ jobs:
     - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
     - name: Build
-      uses: actions-rs/cargo@844f36862e911db73fe0815f00a4a2602c279505 # v1
-      with:
-        use-cross: ${{ matrix.job.use-cross }}
-        command: build
-        args: --locked --target=${{ matrix.job.target }}
+      run: cargo build --locked --target=${{ matrix.job.target }}
 
     - name: clean
       shell: bash
@@ -220,9 +216,6 @@ jobs:
     #     fi
 
     #     # Let subsequent steps know where to find the (stripped) bin
-    #     echo ::set-output name=BIN_PATH::${BIN_PATH}
-    #     echo ::set-output name=BIN_NAME::${BIN_NAME}
-
     - name: Set testing options
       id: test-options
       shell: bash
@@ -239,13 +232,8 @@ jobs:
             ;;
         esac;
 
-        #deprecated echo ::set-output name=CARGO_TEST_OPTIONS::${CARGO_TEST_OPTIONS}
         echo "CARGO_TEST_OPTIONS=${CARGO_TEST_OPTIONS}" >> $GITHUB_ENV
         echo "CARGO_TEST_OPTIONS=${CARGO_TEST_OPTIONS}" >> $GITHUB_OUTPUT
 
     - name: Run tests
-      uses: actions-rs/cargo@844f36862e911db73fe0815f00a4a2602c279505 # v1
-      with:
-        use-cross: ${{ matrix.job.use-cross }}
-        command: test
-        args: --locked --target=${{ matrix.job.target }} ${{ steps.test-options.outputs.CARGO_TEST_OPTIONS}}
+      run: cargo test --locked --target=${{ matrix.job.target }} ${{ steps.test-options.outputs.CARGO_TEST_OPTIONS }}

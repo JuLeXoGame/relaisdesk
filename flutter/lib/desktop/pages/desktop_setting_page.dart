@@ -2502,7 +2502,8 @@ class _AboutState extends State<_About> {
                       .marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
+                    launchUrlString(
+                        'https://relaisdesk.fr/politique-confidentialite.html');
                   },
                   child: Text(
                     translate('Privacy Statement'),
@@ -2510,7 +2511,8 @@ class _AboutState extends State<_About> {
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://rustdesk.com');
+                    launchUrlString(
+                        'https://relaisdesk.fr/logiciel-libre.html');
                   },
                   child: Text(
                     translate('Website'),
@@ -2528,7 +2530,7 @@ class _AboutState extends State<_About> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
+                            'RustDesk contributors. Modifications RelaisDesk © ${DateTime.now().toString().substring(0, 4)} Julien BELLOT EI.\n$license',
                             style: const TextStyle(color: Colors.white),
                           ),
                           Text(

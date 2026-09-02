@@ -1,3 +1,10 @@
+> [!IMPORTANT]
+> This repository is the independent **RelaisDesk modified fork** of RustDesk
+> Community. RelaisDesk changes are dated 24 August 2026 and are maintained by
+> Julien BELLOT EI. See [RELAISDESK_FORK.md](RELAISDESK_FORK.md) for the
+> modification notice, source-distribution requirements and non-affiliation
+> statement. The covered work remains under GNU AGPLv3; see [LICENCE](LICENCE).
+
 <p align="center">
   <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
   <a href="#raw-steps-to-build">Build</a> •
@@ -13,11 +20,11 @@
 > The developers of RustDesk do not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized access, control or invasion of privacy, is strictly against our guidelines. The authors are not responsible for any misuse of the application.
 
 
-Chat with us: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
+Upstream RustDesk community links: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk). These channels do not provide RelaisDesk support.
 
 [![RustDesk Server Pro](https://img.shields.io/badge/RustDesk%20Server%20Pro-Advanced%20Features-blue)](https://rustdesk.com/pricing.html)
 
-Yet another remote desktop solution, written in Rust. Works out of the box with no configuration required. You have full control of your data, with no concerns about security. You can use our rendezvous/relay server, [set up your own](https://rustdesk.com/server), or [write your own rendezvous/relay server](https://github.com/rustdesk/rustdesk-server-demo).
+RelaisDesk is a modified RustDesk remote-desktop client written in Rust. It is configured for the RelaisDesk rendezvous, relay and authorization services. Security still depends on correct deployment, updates, credentials and user consent; no software eliminates all risk.
 
 ![image](https://user-images.githubusercontent.com/71636191/171661982-430285f0-2e12-4b1d-9957-4a58e375304d.png)
 
@@ -25,9 +32,9 @@ RustDesk welcomes contribution from everyone. See [CONTRIBUTING.md](docs/CONTRIB
 
 [**FAQ**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
 
-[**BINARY DOWNLOAD**](https://github.com/rustdesk/rustdesk/releases)
-
-[**NIGHTLY BUILD**](https://github.com/rustdesk/rustdesk/releases/tag/nightly)
+**RelaisDesk binaries and releases are not published yet.** RustDesk upstream
+downloads are different products and do not include the RelaisDesk
+authorization changes.
 
 [<img src="https://f-droid.org/badge/get-it-on.png"
     alt="Get it on F-Droid"

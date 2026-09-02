@@ -25,6 +25,8 @@ const SHOW_ABOUT_TAG: u32 = 1;
 const SHOW_SETTINGS_TAG: u32 = 2;
 const RUN_ME_TAG: u32 = 3;
 const AWAKE: u32 = 4;
+const K_INTERNET_EVENT_CLASS: u32 = 0x4755_524c;
+const K_AE_GET_URL: u32 = 0x4755_524c;
 
 pub trait AppHandler {
     fn command(&mut self, cmd: u32);
@@ -123,8 +125,8 @@ unsafe fn set_delegate(handler: Option<Box<dyn AppHandler>>) {
     let _: () = msg_send![manager,
                               setEventHandler: delegate
                               andSelector: sel!(handleEvent:withReplyEvent:)
-                              forEventClass: fruitbasket::kInternetEventClass
-                              andEventID: fruitbasket::kAEGetURL];
+                              forEventClass: K_INTERNET_EVENT_CLASS
+                              andEventID: K_AE_GET_URL];
     let () = msg_send![NSApp(), setDelegate: delegate];
 }
 

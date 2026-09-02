@@ -4,7 +4,7 @@ version = "1.4.9"
 authors = ["rustdesk <info@rustdesk.com>"]
 edition = "2021"
 build= "build.rs"
-description = "RustDesk Remote Desktop"
+description = "RelaisDesk remote support client, based on RustDesk"
 default-run = "rustdesk"
 rust-version = "1.75"
 
@@ -69,13 +69,13 @@ rubato = { version = "0.12", optional = true }
 samplerate = { version = "0.2", optional = true }
 uuid = { version = "1.3", features = ["v4"] }
 num_cpus = "1.15"
-bytes = { version = "1.4", features = ["serde"] }
+bytes = { version = "1.11.1", features = ["serde"] }
 default-net = "0.14"
 wol-rs = "1.0"
 flutter_rust_bridge = { version = "=1.80", features = ["uuid"], optional = true}
 errno = "0.3"
 rdev = { git = "https://github.com/rustdesk-org/rdev" }
-url = { version = "2.3", features = ["serde"] }
+url = { version = "2.5.4", features = ["serde"] }
 crossbeam-queue = "0.3"
 hex = "0.4"
 chrono = "0.4"
@@ -150,7 +150,7 @@ virtual_display = { path = "libs/virtual_display" }
 remote_printer = { path = "libs/remote_printer" }
 impersonate_system = { git = "https://github.com/rustdesk-org/impersonate-system" }
 shared_memory = "0.12"
-tauri-winrt-notification = "0.1"
+tauri-winrt-notification = "0.8.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
@@ -159,7 +159,6 @@ dispatch = "0.2"
 core-foundation = "0.9"
 core-graphics = "0.22"
 include_dir = "0.7"
-fruitbasket = "0.10"
 objc_id = "0.1"
 # If we use piet "0.7" here, we must also update core-graphics to "0.24".
 piet = "0.6"
@@ -172,7 +171,7 @@ tao = { git = "https://github.com/rustdesk-org/tao", branch = "dev" }
 image = "0.24"
 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
-keepawake = { git = "https://github.com/rustdesk-org/keepawake-rs" }
+keepawake = "0.6"
 
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
 wallpaper = { git = "https://github.com/rustdesk-org/wallpaper.rs" }
@@ -191,19 +190,19 @@ async-process = "1.7"
 evdev = { git="https://github.com/rustdesk-org/evdev" }
 dbus = "0.9"
 dbus-crossroads = "0.5"
-pam = { git="https://github.com/rustdesk-org/pam" }
+pam = { path = "libs/pam-safe" }
 x11-clipboard = {git="https://github.com/clslaid/x11-clipboard", branch = "feat/store-batch", optional = true}
 x11rb =  {version = "0.12", features = ["all-extensions"], optional = true}
 percent-encoding = {version = "2.3", optional = true}
 once_cell = {version = "1.18", optional = true}
-nix = { version = "0.29", features = ["term", "process"]}
+nix = { version = "0.29", features = ["term", "process", "user"]}
 gtk = "0.18"
 termios = "0.3"
 terminfo = "0.8"
 winit = "0.30"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
+openssl = { version = "0.10.72", features = ["vendored"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.13"
@@ -220,9 +219,9 @@ exclude = ["vdi/host", "examples/custom_plugin"]
 libxdo-sys = { path = "libs/libxdo-sys-stub" }
 
 [package.metadata.winres]
-LegalCopyright = "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved."
-ProductName = "RustDesk"
-FileDescription = "RustDesk Remote Desktop"
+LegalCopyright = "RustDesk contributors; RelaisDesk modifications © 2026 Julien BELLOT EI. GNU AGPLv3."
+ProductName = "RelaisDesk"
+FileDescription = "RelaisDesk — client basé sur RustDesk"
 OriginalFilename = "rustdesk.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]
@@ -239,8 +238,8 @@ hound = "3.5"
 docopt = "1.1"
 
 [package.metadata.bundle]
-name = "RustDesk"
-identifier = "com.carriez.rustdesk"
+name = "RelaisDesk"
+identifier = "fr.relaisdesk.client"
 icon = ["res/32x32.png", "res/128x128.png", "res/128x128@2x.png"]
 osx_minimum_system_version = "10.14"
 

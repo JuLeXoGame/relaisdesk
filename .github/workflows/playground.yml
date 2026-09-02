@@ -5,6 +5,12 @@ on:
     # schedule build every night
   #  - cron: "0/6 * * * *"
   workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: Upload build artifacts
+        required: false
+        default: false
+        type: boolean
 
 env:
   RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503
@@ -393,7 +399,7 @@ jobs:
           esac
           popd
           mkdir -p signed-apk; pushd signed-apk
-          mv ../rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.apk ./rustdesk-test-${{ matrix.job.ref }}-${{ matrix.job.ndk }}.apk
+          mv ../rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.apk ./rustdesk-test-${{ matrix.job.ref }}-${{ env.NDK_VERSION }}.apk
 
       - uses: r0adkll/sign-android-release@349ebdef58775b1e0d8099458af0816dc79b6407 # v1
         name: Sign app APK
