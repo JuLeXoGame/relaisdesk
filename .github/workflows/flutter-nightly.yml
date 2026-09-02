@@ -13,3 +13,6 @@ jobs:
     with:
       upload-artifact: true
       upload-tag: "nightly"
+      build_windows_sciter: false
+      build_mobile_and_macos: false
+      build_linux_extras: false

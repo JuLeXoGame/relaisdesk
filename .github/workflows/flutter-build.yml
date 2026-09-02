@@ -9,6 +9,15 @@ on:
       upload-tag:
         type: string
         default: "nightly"
+      build_windows_sciter:
+        type: boolean
+        default: true
+      build_mobile_and_macos:
+        type: boolean
+        default: true
+      build_linux_extras:
+        type: boolean
+        default: true
 
 # NOTE: F-Droid builder script 'flutter/build_fdroid.sh' reads environment
 # variables from this workflow!
@@ -405,6 +414,7 @@ jobs:
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
+    if: ${{ inputs.build_windows_sciter }}
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
@@ -555,7 +565,7 @@ jobs:
           path: ./SignOutput/rustdesk-*.exe
 
   build-rustdesk-ios:
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.build_mobile_and_macos && inputs.upload-artifact }}
     name: build rustdesk ios ipa
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -677,6 +687,7 @@ jobs:
 
 
   build-for-macOS:
+    if: ${{ inputs.build_mobile_and_macos }}
     name: ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
@@ -901,7 +912,7 @@ jobs:
       - build-for-windows-flutter
       - build-for-windows-sciter
     runs-on: ubuntu-latest
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.build_mobile_and_macos && inputs.upload-artifact }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -939,6 +950,7 @@ jobs:
           path: rustdesk-${{ env.VERSION }}-unsigned.tar.gz
 
   build-rustdesk-android:
+    if: ${{ inputs.build_mobile_and_macos }}
     needs: [generate-bridge]
     name: build rustdesk android apk ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
@@ -1225,7 +1237,7 @@ jobs:
   build-rustdesk-android-universal:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.build_mobile_and_macos && inputs.upload-artifact }}
     runs-on: ubuntu-24.04
     env:
       reltype: release
@@ -1740,6 +1752,7 @@ jobs:
   # old for it. A separate job rather than a matrix entry of build-rustdesk-linux: appimage and
   # flatpak need that job, and a failure here must not skip them.
   build-rustdesk-linux-drm:
+    if: ${{ inputs.build_linux_extras }}
     needs: [generate-bridge]
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
@@ -1996,7 +2009,7 @@ jobs:
           path: ${{ env.DRM_DEB }}
 
   build-rustdesk-linux-sciter:
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.build_linux_extras && inputs.upload-artifact }}
     runs-on: ${{ matrix.job.on }}
     name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
     strategy:
@@ -2217,7 +2230,7 @@ jobs:
     name: Build appimage ${{ matrix.job.target }}
     needs: [build-rustdesk-linux]
     runs-on: ubuntu-22.04
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.build_linux_extras && inputs.upload-artifact }}
     strategy:
       fail-fast: false
       matrix:
@@ -2269,7 +2282,7 @@ jobs:
       - build-rustdesk-linux
       - build-rustdesk-linux-sciter
     runs-on: ${{ matrix.job.on }}
-    if: ${{ inputs.upload-artifact }}
+    if: ${{ inputs.build_linux_extras && inputs.upload-artifact }}
     strategy:
       fail-fast: false
       matrix:
