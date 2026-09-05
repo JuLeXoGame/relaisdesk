@@ -4208,8 +4208,10 @@ async fn hc_connection_(
 
     let host = check_port(&rendezvous_server, RENDEZVOUS_PORT);
     let mut conn = connect_tcp(host.clone(), CONNECT_TIMEOUT).await?;
-    let key = crate::get_key(true).await;
-    crate::secure_tcp(&mut conn, &key).await?;
+    if !enforce_relaisdesk {
+        let key = crate::get_key(true).await;
+        crate::secure_tcp(&mut conn, &key).await?;
+    }
     loop {
         tokio::select! {
             res = rx.recv() => {

@@ -1187,10 +1187,11 @@ pub mod client {
     pub struct CapturerPortable {
         width: usize,
         height: usize,
+        direct: Option<Capturer>,
     }
 
     impl CapturerPortable {
-        pub fn new(current_display: usize) -> Self
+        pub fn new(current_display: usize, direct: Option<Capturer>) -> Self
         where
             Self: Sized,
         {
@@ -1220,101 +1221,119 @@ pub mod client {
                     height = display.height();
                 }
             }
-            CapturerPortable { width, height }
+            CapturerPortable {
+                width,
+                height,
+                direct,
+            }
         }
     }
 
     impl TraitCapturer for CapturerPortable {
         fn frame<'a>(&'a mut self, timeout: Duration) -> std::io::Result<Frame<'a>> {
             let mut lock = SHMEM.lock().unwrap();
-            let shmem = lock.as_mut().ok_or(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "shmem dropped".to_string(),
-            ))?;
-            unsafe {
-                let base = shmem.as_ptr();
-                let para_ptr = base.add(ADDR_CAPTURER_PARA);
-                let para = para_ptr as *const CapturerPara;
-                if timeout.as_millis() != (*para).timeout_ms as _ {
-                    utils::set_para(
-                        shmem,
-                        CapturerPara {
-                            recreate: (*para).recreate,
-                            current_display: (*para).current_display,
-                            timeout_ms: timeout.as_millis() as _,
-                        },
-                    );
-                }
-                if utils::counter_ready(base.add(ADDR_CAPTURE_FRAME_COUNTER)) {
-                    let frame_info_ptr = shmem.as_ptr().add(ADDR_CAPTURE_FRAME_INFO);
-                    let frame_info = frame_info_ptr as *const FrameInfo;
-                    let frame_len = (*frame_info).length;
-                    if !is_valid_capture_frame_length(shmem.len(), frame_len) {
-                        log::error!(
-                            "Portable service frame length exceeds shared memory capacity: frame_len={}, shmem_len={}, frame_addr={}",
-                            frame_len,
-                            shmem.len(),
-                            ADDR_CAPTURE_FRAME
+            let mut has_shmem_frame = false;
+            let mut frame_len = 0;
+            let mut frame_offset = 0;
+            if let Some(shmem) = lock.as_mut() {
+                unsafe {
+                    let base = shmem.as_ptr();
+                    let para_ptr = base.add(ADDR_CAPTURER_PARA);
+                    let para = para_ptr as *const CapturerPara;
+                    if timeout.as_millis() != (*para).timeout_ms as _ {
+                        utils::set_para(
+                            shmem,
+                            CapturerPara {
+                                recreate: (*para).recreate,
+                                current_display: (*para).current_display,
+                                timeout_ms: timeout.as_millis() as _,
+                            },
                         );
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "invalid portable service frame length".to_string(),
-                        ));
                     }
-                    if (*frame_info).width != self.width || (*frame_info).height != self.height {
-                        log::info!(
-                            "skip frame, ({},{}) != ({},{})",
-                            (*frame_info).width,
-                            (*frame_info).height,
-                            self.width,
-                            self.height,
-                        );
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::WouldBlock,
-                            "wouldblock error".to_string(),
-                        ));
-                    }
-                    let frame_ptr = base.add(ADDR_CAPTURE_FRAME);
-                    let data = slice::from_raw_parts(frame_ptr, frame_len);
-                    Ok(Frame::PixelBuffer(PixelBuffer::with_BGRA(
-                        data,
-                        self.width,
-                        self.height,
-                    )))
-                } else {
-                    let ptr = base.add(ADDR_CAPTURE_WOULDBLOCK);
-                    let wouldblock = utils::ptr_to_i32(ptr);
-                    if wouldblock == TRUE {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::WouldBlock,
-                            "wouldblock error".to_string(),
-                        ))
-                    } else {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "other error".to_string(),
-                        ))
+                    if utils::counter_ready(base.add(ADDR_CAPTURE_FRAME_COUNTER)) {
+                        let frame_info_ptr = shmem.as_ptr().add(ADDR_CAPTURE_FRAME_INFO);
+                        let frame_info = frame_info_ptr as *const FrameInfo;
+                        let len = (*frame_info).length;
+                        if is_valid_capture_frame_length(shmem.len(), len)
+                            && (*frame_info).width == self.width
+                            && (*frame_info).height == self.height
+                        {
+                            has_shmem_frame = true;
+                            frame_len = len;
+                            frame_offset = ADDR_CAPTURE_FRAME;
+                        } else if !is_valid_capture_frame_length(shmem.len(), len) {
+                            log::error!(
+                                "Portable service frame length exceeds shared memory capacity: frame_len={}, shmem_len={}, frame_addr={}",
+                                len,
+                                shmem.len(),
+                                ADDR_CAPTURE_FRAME
+                            );
+                        } else {
+                            log::info!(
+                                "skip frame, ({},{}) != ({},{})",
+                                (*frame_info).width,
+                                (*frame_info).height,
+                                self.width,
+                                self.height,
+                            );
+                        }
                     }
                 }
             }
+
+            if has_shmem_frame {
+                if let Some(shmem) = lock.as_mut() {
+                    let data = unsafe {
+                        let frame_ptr = shmem.as_ptr().add(frame_offset);
+                        slice::from_raw_parts(frame_ptr, frame_len)
+                    };
+                    return Ok(Frame::PixelBuffer(PixelBuffer::with_BGRA(
+                        data,
+                        self.width,
+                        self.height,
+                    )));
+                }
+            }
+
+            // Shared memory has no ready frame: fall back to direct in-process capturer!
+            drop(lock);
+            if let Some(direct) = self.direct.as_mut() {
+                return direct.frame(timeout);
+            }
+
+            Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "wouldblock error".to_string(),
+            ))
         }
 
-        // control by itself
+        // control by direct capturer if present
         fn is_gdi(&self) -> bool {
-            true
+            self.direct.as_ref().map(|c| c.is_gdi()).unwrap_or(true)
         }
 
         fn set_gdi(&mut self) -> bool {
-            true
+            if let Some(direct) = self.direct.as_mut() {
+                direct.set_gdi()
+            } else {
+                true
+            }
         }
 
         #[cfg(feature = "vram")]
         fn device(&self) -> AdapterDevice {
-            AdapterDevice::default()
+            self.direct
+                .as_ref()
+                .map(|c| c.device())
+                .unwrap_or_default()
         }
 
         #[cfg(feature = "vram")]
-        fn set_output_texture(&mut self, _texture: bool) {}
+        fn set_output_texture(&mut self, texture: bool) {
+            if let Some(direct) = self.direct.as_mut() {
+                direct.set_output_texture(texture);
+            }
+        }
     }
 
     pub(super) fn start_ipc_server() -> mpsc::UnboundedSender<Data> {
@@ -1518,8 +1537,9 @@ pub mod client {
             log::info!("portable service status mismatch");
         }
         if portable_service_running && display.is_primary() {
-            log::info!("Create shared memory capturer");
-            return Ok(Box::new(CapturerPortable::new(current_display)));
+            log::info!("Create shared memory capturer with direct fallback");
+            let direct = Capturer::new(display).ok();
+            return Ok(Box::new(CapturerPortable::new(current_display, direct)));
         } else {
             log::debug!("Create capturer dxgi|gdi");
             return Ok(Box::new(
@@ -1531,12 +1551,14 @@ pub mod client {
     pub fn get_cursor_info(pci: PCURSORINFO) -> BOOL {
         if RUNNING.lock().unwrap().clone() {
             let mut option = SHMEM.lock().unwrap();
-            option
+            let res = option
                 .as_mut()
-                .map_or(FALSE, |sheme| get_cursor_info_(sheme, pci))
-        } else {
-            unsafe { winuser::GetCursorInfo(pci) }
+                .map_or(FALSE, |shmem| get_cursor_info_(shmem, pci));
+            if res == TRUE {
+                return TRUE;
+            }
         }
+        unsafe { winuser::GetCursorInfo(pci) }
     }
 
     pub fn handle_mouse(
