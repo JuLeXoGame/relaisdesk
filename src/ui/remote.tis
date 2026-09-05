@@ -54,7 +54,9 @@ var last_adjusted_res_h = 0;
 
 function adjustRemoteResolution(force = false) {
     if (!display_width || !display_height) return;
-    var (sx, sy, sw, sh) = view.screenBox(view.windowState == View.WINDOW_FULL_SCREEN ? #frame : #workarea, #rectw);
+    // ALWAYS use #frame so we target the monitor's native display resolution (e.g. 1920x1080)
+    // and NOT #workarea which subtracts taskbar height and results in non-standard, vertically squished resolutions (e.g. 1040p)
+    var (sx, sy, sw, sh) = view.screenBox(#frame, #rectw);
     if (!sw || !sh) return;
 
     var target_w = sw;
@@ -70,7 +72,7 @@ function adjustRemoteResolution(force = false) {
                     cur_disp = pi.current_display;
                 }
             } catch (_) {}
-            stdout.println("adjustRemoteResolution -> requesting " + target_w + "x" + target_h + " on display " + cur_disp);
+            stdout.println("adjustRemoteResolution -> requesting native screen resolution " + target_w + "x" + target_h + " on display " + cur_disp);
             handler.change_resolution(cur_disp, target_w, target_h);
         }
     }
@@ -85,6 +87,7 @@ function adaptDisplay() {
     cursor_scale = 1.;
     cursor_scale_x = 1.;
     cursor_scale_y = 1.;
+    var (fx, fy, fw, fh) = view.screenBox(#frame, #rectw);
     var (sx, sy, sw, sh) = view.screenBox(view.windowState == View.WINDOW_FULL_SCREEN ? #frame : #workarea, #rectw);
     if (sw >= w && sh > h) {
         var hh = $(header).box(#height, #border);
@@ -102,43 +105,52 @@ function adaptDisplay() {
             }
         }
     }
-    var bw = $(body).box(#width, #border);
-    var bh = $(body).box(#height, #border);
-    if (view.windowState == View.WINDOW_FULL_SCREEN) {
-        bw = sw;
-        bh = sh;
-    }
+    var is_fullscreen = view.windowState == View.WINDOW_FULL_SCREEN;
+    var bw = is_fullscreen ? fw : $(body).box(#width, #border);
+    var bh = is_fullscreen ? fh : $(body).box(#height, #border);
+
     if (style == "stretch") {
-        handler.attributes.addClass("stretch");
-        if (bw > 0 && bh > 0) {
-            cursor_scale_x = bw.toFloat() / w;
-            cursor_scale_y = bh.toFloat() / h;
-            display_scale = (cursor_scale_x + cursor_scale_y) / 2.;
-            w = bw;
-            h = bh;
-        }
         adjustRemoteResolution(false);
-    } else {
-        handler.attributes.removeClass("stretch");
-        if (style == "shrink") {
-            if (bw > 0 && bh > 0) {
-                var scale_x = bw.toFloat() / w;
-                var scale_y = bh.toFloat() / h;
+        if (bw > 0 && bh > 0) {
+            if (is_fullscreen) {
+                handler.attributes.addClass("stretch");
+                w = fw;
+                h = fh;
+                cursor_scale_x = fw.toFloat() / display_width;
+                cursor_scale_y = fh.toFloat() / display_height;
+                display_scale = (cursor_scale_x + cursor_scale_y) / 2.;
+            } else {
+                handler.attributes.removeClass("stretch");
+                var scale_x = bw.toFloat() / display_width;
+                var scale_y = bh.toFloat() / display_height;
                 var scale = scale_x < scale_y ? scale_x : scale_y;
-                if (scale < 1) {
-                    display_scale = scale;
-                    cursor_scale_x = scale;
-                    cursor_scale_y = scale;
-                    w = w * scale;
-                    h = h * scale;
-                }
+                w = (display_width * scale).toInteger();
+                h = (display_height * scale).toInteger();
+                cursor_scale_x = scale;
+                cursor_scale_y = scale;
+                display_scale = scale;
             }
-        } else {
-            // original
-            cursor_scale_x = 1.;
-            cursor_scale_y = 1.;
-            display_scale = 1.;
         }
+    } else if (style == "shrink") {
+        handler.attributes.removeClass("stretch");
+        if (bw > 0 && bh > 0) {
+            var scale_x = bw.toFloat() / w;
+            var scale_y = bh.toFloat() / h;
+            var scale = scale_x < scale_y ? scale_x : scale_y;
+            if (scale < 1) {
+                display_scale = scale;
+                cursor_scale_x = scale;
+                cursor_scale_y = scale;
+                w = w * scale;
+                h = h * scale;
+            }
+        }
+    } else {
+        // original
+        handler.attributes.removeClass("stretch");
+        cursor_scale_x = 1.;
+        cursor_scale_y = 1.;
+        display_scale = 1.;
     }
     if (isRemoteLinux()) {
         cursor_scale_x = cursor_scale_x * display_remote_scale;
@@ -151,10 +163,19 @@ function adaptDisplay() {
     if (cursor_scale_y <= 0.0001) cursor_scale_y = 1.;
     if (cursor_scale <= 0.0001) cursor_scale = 1.;
     refreshCursor();
-    handler.style.set {
-        width: w / scaleFactor + "px",
-        height: h / scaleFactor + "px",
-    };
+    if (is_fullscreen && style == "stretch") {
+        handler.style.set {
+            width: w / scaleFactor + "px",
+            height: h / scaleFactor + "px",
+            foreground-size: "100% 100%",
+        };
+    } else {
+        handler.style.set {
+            width: w / scaleFactor + "px",
+            height: h / scaleFactor + "px",
+            foreground-size: "contain",
+        };
+    }
 }
 
 // https://sciter.com/event-handling/
@@ -248,6 +269,10 @@ function handler.onMouse(evt)
                     if (view.windowState == View.WINDOW_FULL_SCREEN) {
                         $(header).style.set {
                           display: "block",
+                          position: "absolute",
+                          top: "0",
+                          left: "0",
+                          width: "100%",
                           padding: (2 * workarea_offset + extra) + "px 0 0 0",
                         };
                     }

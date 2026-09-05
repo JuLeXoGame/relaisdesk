@@ -40,11 +40,6 @@ function get_id() {
 function stateChanged() {
     stdout.println('state changed from ' + cur_window_state + ' -> ' + view.windowState);
     cur_window_state = view.windowState;
-    adjustBorder();
-    adaptDisplay();
-    if (cur_window_state != View.WINDOW_MINIMIZED) {
-        view.focus = handler; // to make focus away from restore/maximize button, so that enter key work
-    }
     var fs = view.windowState == View.WINDOW_FULL_SCREEN;
     var el = $(#fullscreen);
     if (el) el.attributes.toggleClass("active", fs);
@@ -55,7 +50,21 @@ function stateChanged() {
     if (fs) {
         $(header).style.set {
             display: "none",
+            position: "absolute",
+            top: "0",
+            left: "0",
+            width: "100%",
         };
+    } else {
+        $(header).style.set {
+            display: "block",
+            position: "static",
+        };
+    }
+    adjustBorder();
+    adaptDisplay();
+    if (cur_window_state != View.WINDOW_MINIMIZED) {
+        view.focus = handler; // to make focus away from restore/maximize button, so that enter key work
     }
 }
 
