@@ -11,6 +11,8 @@ var display_cursor_embedded = false;
 var display_scale = 1;
 // the scale factor is different from `display_scale` if peer platform is Linux (Wayland).
 var cursor_scale = 1;
+var cursor_scale_x = 1.;
+var cursor_scale_y = 1.;
 var keyboard_enabled = true; // server side
 var clipboard_enabled = true; // server side
 var audio_enabled = true; // server side
@@ -47,6 +49,33 @@ function isRemoteLinux() {
     return get_peer_platform() == "Linux";
 }
 
+var last_adjusted_res_w = 0;
+var last_adjusted_res_h = 0;
+
+function adjustRemoteResolution(force = false) {
+    if (!display_width || !display_height) return;
+    var (sx, sy, sw, sh) = view.screenBox(view.windowState == View.WINDOW_FULL_SCREEN ? #frame : #workarea, #rectw);
+    if (!sw || !sh) return;
+
+    var target_w = sw;
+    var target_h = sh;
+
+    if (force || (display_width != target_w || display_height != target_h)) {
+        if (force || (last_adjusted_res_w != target_w || last_adjusted_res_h != target_h)) {
+            last_adjusted_res_w = target_w;
+            last_adjusted_res_h = target_h;
+            var cur_disp = 0;
+            try {
+                if (pi && pi.current_display !== undefined) {
+                    cur_disp = pi.current_display;
+                }
+            } catch (_) {}
+            stdout.println("adjustRemoteResolution -> requesting " + target_w + "x" + target_h + " on display " + cur_disp);
+            handler.change_resolution(cur_disp, target_w, target_h);
+        }
+    }
+}
+
 function adaptDisplay() {
     var w = display_width;
     var h = display_height;
@@ -54,6 +83,8 @@ function adaptDisplay() {
     var style = handler.get_view_style();
     display_scale = 1.;
     cursor_scale = 1.;
+    cursor_scale_x = 1.;
+    cursor_scale_y = 1.;
     var (sx, sy, sw, sh) = view.screenBox(view.windowState == View.WINDOW_FULL_SCREEN ? #frame : #workarea, #rectw);
     if (sw >= w && sh > h) {
         var hh = $(header).box(#height, #border);
@@ -71,30 +102,53 @@ function adaptDisplay() {
             }
         }
     }
-    if (style != "original") {
-        var bw = $(body).box(#width, #border);
-        var bh = $(body).box(#height, #border);
-        if (view.windowState == View.WINDOW_FULL_SCREEN) {
-            bw = sw;
-            bh = sh;
-        }
+    var bw = $(body).box(#width, #border);
+    var bh = $(body).box(#height, #border);
+    if (view.windowState == View.WINDOW_FULL_SCREEN) {
+        bw = sw;
+        bh = sh;
+    }
+    if (style == "stretch") {
+        handler.attributes.addClass("stretch");
         if (bw > 0 && bh > 0) {
-            var scale_x = bw.toFloat() / w;
-            var scale_y = bh.toFloat() / h;
-            var scale = scale_x < scale_y ? scale_x : scale_y;
-            if ((scale > 1 && style == "stretch") ||
-                (scale < 1 && style == "shrink")) {
-                display_scale = scale;
-                w = w * scale;
-                h = h * scale;
+            cursor_scale_x = bw.toFloat() / w;
+            cursor_scale_y = bh.toFloat() / h;
+            display_scale = (cursor_scale_x + cursor_scale_y) / 2.;
+            w = bw;
+            h = bh;
+        }
+        adjustRemoteResolution(false);
+    } else {
+        handler.attributes.removeClass("stretch");
+        if (style == "shrink") {
+            if (bw > 0 && bh > 0) {
+                var scale_x = bw.toFloat() / w;
+                var scale_y = bh.toFloat() / h;
+                var scale = scale_x < scale_y ? scale_x : scale_y;
+                if (scale < 1) {
+                    display_scale = scale;
+                    cursor_scale_x = scale;
+                    cursor_scale_y = scale;
+                    w = w * scale;
+                    h = h * scale;
+                }
             }
+        } else {
+            // original
+            cursor_scale_x = 1.;
+            cursor_scale_y = 1.;
+            display_scale = 1.;
         }
     }
     if (isRemoteLinux()) {
+        cursor_scale_x = cursor_scale_x * display_remote_scale;
+        cursor_scale_y = cursor_scale_y * display_remote_scale;
         cursor_scale = display_scale * display_remote_scale;
     } else {
         cursor_scale = display_scale;
     }
+    if (cursor_scale_x <= 0.0001) cursor_scale_x = 1.;
+    if (cursor_scale_y <= 0.0001) cursor_scale_y = 1.;
     if (cursor_scale <= 0.0001) cursor_scale = 1.;
     refreshCursor();
     handler.style.set {
@@ -352,8 +406,8 @@ function handler.onMouse(evt)
         resetWheel();
     }
     if (!keyboard_enabled) return false;
-    x = (x / cursor_scale).toInteger();
-    y = (y / cursor_scale).toInteger();
+    x = (x / cursor_scale_x).toInteger();
+    y = (y / cursor_scale_y).toInteger();
     // insert down between two up, osx has this behavior for triple click
     if (last_mouse_mask == 2 && mask == 2) {
         handler.send_mouse((evt.buttons << 3) | 1, 0, 0, evt.altKey,
@@ -413,7 +467,7 @@ function updateCursor(system=false) {
     if (system) {
         handler.style#cursor = undefined;
     } else if (cur_img) {
-        handler.style.cursor(cur_img, (cur_hotx * cursor_scale).toInteger(), (cur_hoty * cursor_scale).toInteger());
+        handler.style.cursor(cur_img, (cur_hotx * cursor_scale_x).toInteger(), (cur_hoty * cursor_scale_y).toInteger());
     }
 }
 
@@ -466,8 +520,8 @@ handler.setCursorPosition = function(x, y) {
     cur_y = y - display_origin_y;
     var x = cur_x - cur_hotx;
     var y = cur_y - cur_hoty;
-    x *= cursor_scale / scaleFactor;
-    y *= cursor_scale / scaleFactor;
+    x *= cursor_scale_x / scaleFactor;
+    y *= cursor_scale_y / scaleFactor;
     cursor_img.style.set {
         left: x + "px",
         top: y + "px",

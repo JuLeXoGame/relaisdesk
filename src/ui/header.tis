@@ -195,6 +195,7 @@ class Header: Reactor.Component {
                 <li #original type="view-style"><span>{svg_checkmark}</span>{translate('Original')}</li> 
                 <li #shrink type="view-style"><span>{svg_checkmark}</span>{translate('Shrink')}</li> 
                 <li #stretch type="view-style"><span>{svg_checkmark}</span>{translate('Stretch')}</li> 
+                <li #fit-local-resolution>{translate('resolution_fit_local_tip')}</li> 
                 <div .separator />
                 <li #best type="image-quality"><span>{svg_checkmark}</span>{translate('Good image quality')}</li> 
                 <li #balanced type="image-quality"><span>{svg_checkmark}</span>{translate('Balanced')}</li> 
@@ -409,6 +410,8 @@ class Header: Reactor.Component {
     event click $(menu#display-options li) (_, me) {
         if (me.id == "custom") {
             handle_custom_image_quality();
+        } else if (me.id == "fit-local-resolution") {
+            adjustRemoteResolution(true);
         } else if (me.id == "privacy-mode") {
             togglePrivacyMode(me.id);
         } else if (me.id == "show-quality-monitor") {
@@ -424,6 +427,9 @@ class Header: Reactor.Component {
                 handler.save_image_quality(me.id);
             } else if (type == "view-style") {
                 handler.save_view_style(me.id);
+                if (me.id == "stretch") {
+                    adjustRemoteResolution(true);
+                }
                 adaptDisplay();
             } else if (type == "codec-preference") {
                 handler.set_option("codec-preference", me.id);

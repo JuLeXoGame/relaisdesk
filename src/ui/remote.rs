@@ -586,6 +586,7 @@ impl sciter::EventHandler for SciterSession {
         fn has_file_clipboard();
         fn get_printer_names();
         fn on_printer_selected(i32, String, String);
+        fn change_resolution(i32, i32, i32);
     }
 }
 
@@ -911,6 +912,10 @@ impl SciterSession {
 
     fn handle_screenshot(&self, action: String) -> String {
         crate::client::screenshot::handle_screenshot(action)
+    }
+
+    fn change_resolution(&mut self, display: i32, width: i32, height: i32) {
+        self.0.change_resolution(display, width, height);
     }
 }
 

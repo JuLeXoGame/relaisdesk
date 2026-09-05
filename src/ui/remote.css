@@ -26,6 +26,10 @@ video#handler {
     foreground-size: contain;
 }
 
+video#handler.stretch {
+    foreground-size: 100% 100%;
+}
+
 img#cursor {
     position: absolute;
     display: none;
