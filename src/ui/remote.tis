@@ -111,25 +111,13 @@ function adaptDisplay() {
 
     if (style == "stretch") {
         adjustRemoteResolution(false);
+        handler.attributes.addClass("stretch");
         if (bw > 0 && bh > 0) {
-            if (is_fullscreen) {
-                handler.attributes.addClass("stretch");
-                w = fw;
-                h = fh;
-                cursor_scale_x = fw.toFloat() / display_width;
-                cursor_scale_y = fh.toFloat() / display_height;
-                display_scale = (cursor_scale_x + cursor_scale_y) / 2.;
-            } else {
-                handler.attributes.removeClass("stretch");
-                var scale_x = bw.toFloat() / display_width;
-                var scale_y = bh.toFloat() / display_height;
-                var scale = scale_x < scale_y ? scale_x : scale_y;
-                w = (display_width * scale).toInteger();
-                h = (display_height * scale).toInteger();
-                cursor_scale_x = scale;
-                cursor_scale_y = scale;
-                display_scale = scale;
-            }
+            w = bw;
+            h = bh;
+            cursor_scale_x = bw.toFloat() / display_width;
+            cursor_scale_y = bh.toFloat() / display_height;
+            display_scale = (cursor_scale_x + cursor_scale_y) / 2.;
         }
     } else if (style == "shrink") {
         handler.attributes.removeClass("stretch");
@@ -163,7 +151,7 @@ function adaptDisplay() {
     if (cursor_scale_y <= 0.0001) cursor_scale_y = 1.;
     if (cursor_scale <= 0.0001) cursor_scale = 1.;
     refreshCursor();
-    if (is_fullscreen && style == "stretch") {
+    if (style == "stretch") {
         handler.style.set {
             width: w / scaleFactor + "px",
             height: h / scaleFactor + "px",
