@@ -5,6 +5,10 @@
 > modification notice, source-distribution requirements and non-affiliation
 > statement. The covered work remains under GNU AGPLv3; see [LICENCE](LICENCE).
 
+RelaisDesk-specific [build and source instructions](docs/RELAISDESK_BUILD.md)
+and [security contact](docs/SECURITY.md) take precedence over upstream
+distribution examples below. An upstream release is not a RelaisDesk build.
+
 <p align="center">
   <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
   <a href="#raw-steps-to-build">Build</a> •
