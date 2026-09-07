@@ -202,7 +202,7 @@ terminfo = "0.8"
 winit = "0.30"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-openssl = { version = "0.10.72", features = ["vendored"] }
+openssl = { version = "0.10.80", features = ["vendored"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.13"
@@ -210,13 +210,15 @@ jni = "0.21"
 android-wakelock = { git = "https://github.com/rustdesk-org/android-wakelock" }
 
 [workspace]
-members = ["libs/scrap", "libs/hbb_common", "libs/enigo", "libs/clipboard", "libs/virtual_display", "libs/virtual_display/dylib", "libs/portable", "libs/remote_printer"]
+members = ["libs/scrap", "libs/hbb_common", "libs/enigo", "libs/clipboard", "libs/virtual_display", "libs/virtual_display/dylib", "libs/portable", "libs/remote_printer", "libs/atty-compat"]
 exclude = ["vdi/host", "examples/custom_plugin"]
 
 # Patch libxdo-sys to use a stub implementation that doesn't require libxdo
 # This allows building and running on systems without libxdo installed (e.g., Wayland-only)
 [patch.crates-io]
 libxdo-sys = { path = "libs/libxdo-sys-stub" }
+atty = { path = "libs/atty-compat" }
+glib = { path = "vendor/glib-0.18.5" }
 
 [package.metadata.winres]
 LegalCopyright = "RustDesk contributors; RelaisDesk modifications © 2026 Julien BELLOT EI. GNU AGPLv3."

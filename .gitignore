@@ -61,3 +61,6 @@ flutter/web/
 /.tools/
 /.cache/
 /bin/rustdesk-fork/
+/libs/virtual_display/Cargo.lock
+/libs/portable/Cargo.lock
+/vendor/**/.cargo-ok

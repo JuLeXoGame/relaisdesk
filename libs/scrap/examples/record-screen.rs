@@ -1,5 +1,4 @@
 extern crate docopt;
-extern crate quest;
 extern crate repng;
 extern crate scrap;
 extern crate serde;
@@ -11,6 +10,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{io, thread};
+
+#[path = "support/input.rs"]
+mod input;
 
 use docopt::Docopt;
 use scrap::codec::{EncoderApi, EncoderCfg};
@@ -72,12 +74,7 @@ fn main() -> io::Result<()> {
     } {
         Ok(file) => file,
         Err(ref e) if e.kind() == io::ErrorKind::AlreadyExists => {
-            if loop {
-                quest::ask("Overwrite the existing file? [y/N] ");
-                if let Some(b) = quest::yesno(false)? {
-                    break b;
-                }
-            } {
+            if input::confirm_overwrite(&mut io::stdin().lock(), &mut io::stdout().lock())? {
                 File::create(&args.arg_path)?
             } else {
                 return Ok(());
@@ -118,8 +115,10 @@ fn main() -> io::Result<()> {
     thread::spawn({
         let stop = stop.clone();
         move || {
-            let _ = quest::ask("Recording! Press ⏎ to stop.");
-            let _ = quest::text();
+            println!("Recording! Press ⏎ to stop.");
+            if let Err(error) = io::stdin().read_line(&mut String::new()) {
+                eprintln!("Cannot read stop command: {error}");
+            }
             stop.store(true, Ordering::Release);
         }
     });
