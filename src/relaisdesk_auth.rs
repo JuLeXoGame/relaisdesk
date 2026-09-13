@@ -8,10 +8,33 @@ use hbb_common::{
 use std::{fs, path::Path, time::SystemTime};
 use uuid::Uuid;
 
+#[cfg(target_os = "linux")]
+#[path = "relaisdesk_fleet_linux.rs"]
+mod fleet_linux;
+
 const TOKEN_FILE_OPTION: &str = "relaisdesk-token-file";
 const PROOF_KEY_FILE_OPTION: &str = "relaisdesk-proof-key-file";
 const MAX_TOKEN_BYTES: u64 = 8 * 1024;
 const MAX_KEY_FILE_BYTES: u64 = 256;
+
+#[path = "relaisdesk_peer_auth.rs"]
+mod peer_auth;
+pub(crate) use peer_auth::PeerLease;
+
+pub(crate) fn session_proof(challenge: &str) -> ResultType<Option<hbb_common::message_proto::NetworkAuthorization>> {
+    if challenge.is_empty() { return Ok(None); }
+    Ok(authorization(&format!("session:{challenge}"))?.map(|auth| hbb_common::message_proto::NetworkAuthorization {
+        token: auth.token, timestamp: auth.timestamp, nonce: auth.nonce, signature: auth.signature.into(), ..Default::default()
+    }))
+}
+
+pub(crate) fn verify_peer(proof: Option<&hbb_common::message_proto::NetworkAuthorization>, challenge: &str, previous: Option<&PeerLease>) -> ResultType<Option<PeerLease>> {
+    match authorization("peer-policy")? {
+        Some(local) => peer_auth::verify_peer(&local.token, proof, challenge, previous),
+        None if previous.is_none() => Ok(None),
+        None => bail!("Local RelaisDesk authorization disappeared"),
+    }
+}
 
 pub(crate) struct AuthorizationProof {
     pub(crate) token: String,
@@ -21,11 +44,19 @@ pub(crate) struct AuthorizationProof {
 }
 
 pub(crate) fn is_configured() -> bool {
+    #[cfg(target_os = "linux")]
+    if !Config::get_option("relaisdesk-proof-socket").trim().is_empty() {
+        return true;
+    }
     !Config::get_option(TOKEN_FILE_OPTION).trim().is_empty()
         || !Config::get_option(PROOF_KEY_FILE_OPTION).trim().is_empty()
 }
 
 pub(crate) fn authorization(action: &str) -> ResultType<Option<AuthorizationProof>> {
+    #[cfg(target_os = "linux")]
+    if !Config::get_option("relaisdesk-proof-socket").trim().is_empty() {
+        return fleet_linux::authorization(action).map(Some);
+    }
     let token_path = Config::get_option(TOKEN_FILE_OPTION);
     let key_path = Config::get_option(PROOF_KEY_FILE_OPTION);
     if token_path.trim().is_empty() && key_path.trim().is_empty() {

@@ -2770,6 +2770,10 @@ impl LoginConfigHandler {
             Bytes::new()
         };
         let mut lr = LoginRequest {
+            relaisdesk_authorization: match crate::relaisdesk_auth::session_proof(&self.hash.challenge) {
+                Ok(proof) => proof.into(),
+                Err(err) => { log::warn!("RelaisDesk session proof unavailable: {err}"); None.into() }
+            },
             username: pure_id,
             password: password.into(),
             my_id,
@@ -3175,8 +3179,14 @@ async fn do_sync_cpu_usage() {
 ///
 /// * `t` - The latency test message.
 /// * `peer` - The peer.
-pub async fn handle_test_delay(t: TestDelay, peer: &mut Stream) {
+pub async fn handle_test_delay(mut t: TestDelay, peer: &mut Stream) {
     if !t.from_client {
+        if !t.relaisdesk_challenge.is_empty() {
+            t.relaisdesk_authorization = match crate::relaisdesk_auth::session_proof(&t.relaisdesk_challenge) {
+                Ok(proof) => proof.into(),
+                Err(err) => { log::warn!("RelaisDesk session renewal unavailable: {err}"); None.into() }
+            };
+        }
         let mut msg_out = Message::new();
         msg_out.set_test_delay(t);
         allow_err!(peer.send(&msg_out).await);

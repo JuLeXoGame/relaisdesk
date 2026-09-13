@@ -340,6 +340,8 @@ pub struct Connection {
     privacy_mode: bool,
     control_permissions: Option<ControlPermissions>,
     last_test_delay: Option<Instant>,
+    relaisdesk_peer: Option<crate::relaisdesk_auth::PeerLease>,
+    relaisdesk_challenge: String,
     network_delay: u32,
     lock_after_session_end: bool,
     show_remote_cursor: bool,
@@ -486,7 +488,7 @@ impl Connection {
         let salt = Config::get_effective_permanent_password_salt();
         let hash = Hash {
             salt,
-            challenge: Config::get_auto_password(6),
+            challenge: if crate::relaisdesk_auth::is_configured() { uuid::Uuid::new_v4().simple().to_string() } else { Config::get_auto_password(6) },
             ..Default::default()
         };
         let (tx_from_cm_holder, mut rx_from_cm) = mpsc::unbounded_channel::<ipc::Data>();
@@ -548,6 +550,8 @@ impl Connection {
             privacy_mode: Self::permission(keys::OPTION_ENABLE_PRIVACY_MODE, &control_permissions),
             control_permissions,
             last_test_delay: None,
+            relaisdesk_peer: None,
+            relaisdesk_challenge: String::new(),
             network_delay: 0,
             lock_after_session_end: false,
             show_remote_cursor: false,
@@ -1098,6 +1102,11 @@ impl Connection {
                     }
                 }
                 _ = second_timer.tick() => {
+                    if conn.relaisdesk_peer.as_ref().map(|lease| !lease.is_current()).unwrap_or(false) {
+                        conn.send_close_reason_no_retry("RelaisDesk: autorisation du technicien expirée").await;
+                        conn.on_close("RelaisDesk peer authorization expired", true).await;
+                        break;
+                    }
                     #[cfg(windows)]
                     conn.portable_check();
                     raii::AuthedConnID::check_wake_lock_on_setting_changed();
@@ -1119,9 +1128,11 @@ impl Connection {
                     }
                     // The control end will jump out of the loop after receiving LoginResponse and will not reply to the TestDelay
                     if conn.last_test_delay.is_none() && !(conn.port_forward_socket.is_some() && conn.authorized) {
+                        conn.relaisdesk_challenge = if conn.relaisdesk_peer.is_some() { uuid::Uuid::new_v4().simple().to_string() } else { String::new() };
                         conn.last_test_delay = Some(Instant::now());
                         let mut msg_out = Message::new();
                         msg_out.set_test_delay(TestDelay{
+                            relaisdesk_challenge: conn.relaisdesk_challenge.clone(),
                             last_delay: conn.network_delay,
                             target_bitrate: video_service::VIDEO_QOS.lock().unwrap().bitrate(),
                             ..Default::default()
@@ -2803,6 +2814,18 @@ impl Connection {
         }
         // After handling CloseReason messages, proceed to process other message types
         if let Some(message::Union::LoginRequest(lr)) = msg.union {
+            match crate::relaisdesk_auth::verify_peer(lr.relaisdesk_authorization.as_ref(), &self.hash.challenge, self.relaisdesk_peer.as_ref()) {
+                Ok(lease) => self.relaisdesk_peer = lease,
+                Err(err) => { self.send_login_error(&format!("RelaisDesk: {err}")).await; return false; }
+            }
+            if self.relaisdesk_peer.is_some() && matches!(lr.union.as_ref(), Some(login_request::Union::PortForward(_))) {
+                if self.relaisdesk_peer.as_ref().map(|lease| lease.restricted).unwrap_or(false) {
+                    self.send_login_error("RelaisDesk: utilisez la prise de contrôle ; les tunnels TCP/RDP sont réservés au propriétaire").await;
+                    return false;
+                }
+                // The owner's raw tunnel retains the existing network authorization guard.
+                self.relaisdesk_peer = None;
+            }
             if !self.check_login_scope(&lr).await {
                 return false;
             }
@@ -3080,6 +3103,14 @@ impl Connection {
                 }
             }
         } else if let Some(message::Union::TestDelay(t)) = msg.union {
+            if !t.from_client && self.relaisdesk_peer.is_some() {
+                if t.relaisdesk_challenge != self.relaisdesk_challenge || self.relaisdesk_challenge.is_empty() { return false; }
+                match crate::relaisdesk_auth::verify_peer(t.relaisdesk_authorization.as_ref(), &self.relaisdesk_challenge, self.relaisdesk_peer.as_ref()) {
+                    Ok(lease) => self.relaisdesk_peer = lease,
+                    Err(err) => { self.send_close_reason_no_retry(&format!("RelaisDesk: {err}")).await; return false; }
+                }
+                self.relaisdesk_challenge.clear();
+            }
             if t.from_client {
                 let mut msg_out = Message::new();
                 msg_out.set_test_delay(t);
@@ -3115,6 +3146,10 @@ impl Connection {
                                 return false;
                             }
                             self.reset_session_scope_for_login();
+                            match crate::relaisdesk_auth::verify_peer(lr.relaisdesk_authorization.as_ref(), &self.hash.challenge, self.relaisdesk_peer.as_ref()) {
+                                Ok(lease) => self.relaisdesk_peer = lease,
+                                Err(err) => { self.send_login_error(&format!("RelaisDesk: {err}")).await; return false; }
+                            }
                             self.handle_login_request_without_validation(&lr).await;
                             // Switching sides authorizes without a password, so it must not bypass
                             // the whitelist, which can be a locked policy pushed by the server.
