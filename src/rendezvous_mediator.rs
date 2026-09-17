@@ -221,6 +221,7 @@ impl RendezvousMediator {
             host_prefix: Self::get_host_prefix(&host),
             keep_alive: crate::DEFAULT_KEEP_ALIVE,
         };
+        Config::set_host_key_confirmed(&rz.host_prefix, false);
 
         let mut timer = crate::rustdesk_interval(interval(crate::TIMER_OUT));
         const MIN_REG_TIMEOUT: i64 = 3_000;
