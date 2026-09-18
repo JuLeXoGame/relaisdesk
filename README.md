@@ -10,32 +10,32 @@ and [security contact](docs/SECURITY.md) take precedence over upstream
 distribution examples below. An upstream release is not a RelaisDesk build.
 
 <p align="center">
-  <img src="res/relaisdesk-banner.png" alt="RelaisDesk - Solution souveraine de bureau à distance"><br>
+  <img src="res/relaisdesk-banner.png" alt="RelaisDesk - Sovereign Remote Desktop Solution"><br>
   <a href="#raw-steps-to-build">Build</a> •
   <a href="#how-to-build-with-docker">Docker</a> •
   <a href="#file-structure">Structure</a> •
   <a href="#screenshots">Screenshots</a><br>
   [<a href="docs/README-FR.md">Français</a>] | [<a href="README.md">English</a>] | [<a href="docs/README-ES.md">Español</a>] | [<a href="docs/README-DE.md">Deutsch</a>] | [<a href="docs/README-IT.md">Italiano</a>]<br>
-  <b><a href="https://relaisdesk.fr">relaisdesk.fr</a> • Solution indépendante d'accès à distance et d'assistance informatique</b>
+  <b><a href="https://relaisdesk.fr">relaisdesk.fr</a> • Independent remote desktop and IT support solution</b>
 </p>
 
 > [!Caution]
 > **Misuse Disclaimer:** <br>
 > The developers of RelaisDesk and RustDesk do not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized access, control or invasion of privacy, is strictly against our guidelines. The authors are not responsible for any misuse of the application.
 
-[![RelaisDesk](https://img.shields.io/badge/RelaisDesk-Site%20Officiel-blue)](https://relaisdesk.fr)
-[![Licence AGPLv3](https://img.shields.io/badge/Licence-GNU%20AGPLv3-green)](LICENCE)
+[![RelaisDesk](https://img.shields.io/badge/RelaisDesk-Official%20Website-blue)](https://relaisdesk.fr)
+[![License AGPLv3](https://img.shields.io/badge/License-GNU%20AGPLv3-green)](LICENCE)
 [![Infrastructure France](https://img.shields.io/badge/Infrastructure-France%20(Oracle)-orange)](https://relaisdesk.fr)
 
-RelaisDesk est un client et serveur de bureau à distance souverain dérivé de RustDesk Community, écrit en Rust. Il intègre le protocole d'autorisation et de validation des clés d'hôte de RelaisDesk, avec une infrastructure de relais hébergée en France.
+RelaisDesk is an independent, sovereign remote desktop client and server derived from RustDesk Community, written in Rust. It incorporates RelaisDesk's peer authorization protocol, host key verification, and is configured for dedicated French relay infrastructure.
 
-![Espace Technicien RelaisDesk](docs/screenshots/relaisdesk-espace-technicien.png)
+![RelaisDesk Technician Dashboard](docs/screenshots/relaisdesk-espace-technicien.png)
 
 RelaisDesk welcomes contributions from everyone. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for help getting started.
 
 [**FAQ**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
 
-**Distribution RelaisDesk :** Les exécutables et binaires RelaisDesk sont distribués de manière sécurisée depuis la plateforme [relaisdesk.fr](https://relaisdesk.fr). Les dépôts amonts RustDesk correspondent à un produit distinct qui n'embarque pas la passerelle d'autorisation RelaisDesk.
+**RelaisDesk Distribution:** RelaisDesk binaries and packages are securely distributed through the [relaisdesk.fr](https://relaisdesk.fr) platform. Upstream RustDesk downloads are distinct products and do not include the RelaisDesk authorization gateway.
 
 ## Dependencies
 
@@ -173,10 +173,11 @@ Please ensure that you run these commands from the root of the RustDesk reposito
 
 ## Screenshots
 
-### Espace Technicien RelaisDesk (Gestion de parc & accès distant)
-![Espace Technicien RelaisDesk](docs/screenshots/relaisdesk-espace-technicien.png)
+### RelaisDesk Technician Dashboard (Fleet Management & Remote Access)
+![RelaisDesk Technician Dashboard](docs/screenshots/relaisdesk-espace-technicien.png)
 
-### Session distante en direct
-![Session distante RelaisDesk](docs/screenshots/relaisdesk-session-distante.png)
+### Live Remote Desktop Session
+![RelaisDesk Live Session](docs/screenshots/relaisdesk-session-distante.png)
+
 
 
