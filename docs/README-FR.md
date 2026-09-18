@@ -1,17 +1,16 @@
 <p align="center">
-  <img src="../res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
-  <a href="#serveurs-publics-libres">Serveurs</a> -
+  <img src="../res/relaisdesk-banner.png" alt="RelaisDesk - Solution souveraine de bureau à distance"><br>
   <a href="#étapes-brutes-de-la-compilationbuild">Build</a> -
   <a href="#comment-construire-avec-docker">Docker</a> -
   <a href="#structure-du-projet">Structure</a> -
-  <a href="#images">Images</a><br>
-  [<a href="../README.md">English</a>] | [<a href="README-UA.md">Українська</a>] | [<a href="README-CS.md">česky</a>] | [<a href="README-ZH.md">中文</a>] | [<a href="README-HU.md">Magyar</a>] | [<a href="README-ES.md">Español</a>] | [<a href="README-FA.md">فارسی</a>] | [<a href="README-DE.md">Deutsch</a>] | [<a href="README-PL.md">Polski</a>] | [<a href="README-ID.md">Indonesian</a>] | [<a href="README-FI.md">Suomi</a>] | [<a href="README-ML.md">മലയാളം</a>] | [<a href="README-JP.md">日本語</a>] | [<a href="README-NL.md">Nederlands</a>] | [<a href="README-IT.md">Italiano</a>] | [<a href="README-RU.md">Русский</a>] | [<a href="README-PTBR.md">Português (Brasil)</a>] | [<a href="README-EO.md">Esperanto</a>] | [<a href="README-KR.md">한국어</a>] | [<a href="README-AR.md">العربي</a>] | [<a href="README-VN.md">Tiếng Việt</a>] | [<a href="README-GR.md">Ελληνικά</a>]<br>
-  <b>Nous avons besoin de votre aide pour traduire ce README dans votre langue maternelle</b>.
+  <a href="#captures-décran">Captures</a><br>
+  [<a href="../README.md">English</a>] | [<a href="README-FR.md">Français</a>] | [<a href="README-ES.md">Español</a>] | [<a href="README-DE.md">Deutsch</a>] | [<a href="README-IT.md">Italiano</a>]<br>
+  <b><a href="https://relaisdesk.fr">relaisdesk.fr</a> • Solution indépendante d'accès à distance et d'assistance informatique</b>
 </p>
 
-Chattez avec nous : [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
-
-[![RustDesk Server Pro](https://img.shields.io/badge/RustDesk%20Server%20Pro-Fonctionnalit%C3%A9s%20Avanc%C3%A9es-blue)](https://rustdesk.com/pricing.html)
+[![RelaisDesk](https://img.shields.io/badge/RelaisDesk-Site%20Officiel-blue)](https://relaisdesk.fr)
+[![Licence AGPLv3](https://img.shields.io/badge/Licence-GNU%20AGPLv3-green)](../LICENCE)
+[![Infrastructure France](https://img.shields.io/badge/Infrastructure-France%20(Oracle)-orange)](https://relaisdesk.fr)
 
 Encore un autre logiciel de bureau à distance, écrit en Rust. Fonctionne directement, aucune configuration n'est nécessaire. Vous avez le contrôle total de vos données, sans aucun souci de sécurité. Vous pouvez utiliser notre serveur de rendez-vous/relais, [configurer le vôtre](https://rustdesk.com/server), ou [écrire votre propre serveur de rendez-vous/relais](https://github.com/rustdesk/rustdesk-server-demo).
 
@@ -141,12 +140,11 @@ Veuillez vous assurer que vous exécutez ces commandes à partir de la racine du
 > **Avertissement contre l'utilisation abusive:** <br>
 > Les développeurs de RustDesk ne cautionnent ni ne soutiennent aucune utilisation non éthique ou illégale de ce logiciel. Toute utilisation abusive, telle que l'accès non autorisé, le contrôle ou l'invasion de la vie privée, est strictement contraire à nos directives. Les auteurs ne sont pas responsables de toute utilisation abusive de l'application.
 
-## Images
+## Captures d'écran
 
-![image](https://user-images.githubusercontent.com/71636191/113112362-ae4deb80-923b-11eb-957d-ff88daad4f06.png)
+### Espace Technicien RelaisDesk (Gestion de parc & accès distant)
+![Espace Technicien RelaisDesk](screenshots/relaisdesk-espace-technicien.png)
 
-![image](https://user-images.githubusercontent.com/71636191/113112619-f705a480-923b-11eb-911d-97e984ef52b6.png)
+### Session distante en direct
+![Session distante RelaisDesk](screenshots/relaisdesk-session-distante.png)
 
-![image](https://user-images.githubusercontent.com/71636191/113112857-3fbd5d80-923c-11eb-9836-768325faf906.png)
-
-![image](https://user-images.githubusercontent.com/71636191/135385039-38fdbd72-379a-422d-b97f-33df71fb1cec.png)
