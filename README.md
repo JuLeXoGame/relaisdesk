@@ -1,66 +1,66 @@
 > [!IMPORTANT]
-> This repository is the independent **RelaisDesk modified fork** of RustDesk
-> Community. RelaisDesk changes are dated 24 August 2026 and are maintained by
-> Julien BELLOT EI. See [RELAISDESK_FORK.md](RELAISDESK_FORK.md) for the
-> modification notice, source-distribution requirements and non-affiliation
-> statement. The covered work remains under GNU AGPLv3; see [LICENCE](LICENCE).
+> Ce dépôt est le **fork modifié indépendant RelaisDesk** de RustDesk
+> Community. Les modifications RelaisDesk sont datées du 24 août 2026 et sont maintenues par
+> Julien BELLOT EI. Consultez [RELAISDESK_FORK.md](RELAISDESK_FORK.md) pour
+> la notice de modification, les exigences de distribution des sources et la déclaration
+> de non-affiliation. L'œuvre couverte demeure sous licence GNU AGPLv3 ; voir [LICENCE](LICENCE).
 
-RelaisDesk-specific [build and source instructions](docs/RELAISDESK_BUILD.md)
-and [security contact](docs/SECURITY.md) take precedence over upstream
-distribution examples below. An upstream release is not a RelaisDesk build.
+Les [instructions de compilation et de code source](docs/RELAISDESK_BUILD.md) spécifiques à RelaisDesk
+et le [contact sécurité](docs/SECURITY.md) prévalent sur les exemples de distribution
+amont ci-dessous. Une version amont (upstream) n'est pas une version RelaisDesk.
 
 <p align="center">
-  <img src="res/relaisdesk-banner.png" alt="RelaisDesk - Sovereign Remote Desktop Solution"><br>
-  <a href="#raw-steps-to-build">Build</a> •
-  <a href="#how-to-build-with-docker">Docker</a> •
-  <a href="#file-structure">Structure</a> •
-  <a href="#screenshots">Screenshots</a><br>
-  [<a href="docs/README-FR.md">Français</a>] | [<a href="README.md">English</a>] | [<a href="docs/README-ES.md">Español</a>] | [<a href="docs/README-DE.md">Deutsch</a>] | [<a href="docs/README-IT.md">Italiano</a>]<br>
-  <b><a href="https://relaisdesk.fr">relaisdesk.fr</a> • Independent remote desktop and IT support solution</b>
+  <img src="res/relaisdesk-banner.png" alt="RelaisDesk - Solution souveraine de bureau à distance"><br>
+  <a href="#étapes-brutes-de-compilation">Compilation</a> •
+  <a href="#comment-compiler-avec-docker">Docker</a> •
+  <a href="#structure-des-fichiers">Structure</a> •
+  <a href="#captures-décran">Captures</a><br>
+  [<a href="README.md">Français</a>] | [<a href="docs/README-EN.md">English</a>] | [<a href="docs/README-ES.md">Español</a>] | [<a href="docs/README-DE.md">Deutsch</a>] | [<a href="docs/README-IT.md">Italiano</a>]<br>
+  <b><a href="https://relaisdesk.fr">relaisdesk.fr</a> • Solution souveraine de bureau à distance et d'assistance informatique</b>
 </p>
 
 > [!Caution]
-> **Misuse Disclaimer:** <br>
-> The developers of RelaisDesk and RustDesk do not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized access, control or invasion of privacy, is strictly against our guidelines. The authors are not responsible for any misuse of the application.
+> **Avertissement contre toute utilisation abusive :** <br>
+> Les développeurs de RelaisDesk et RustDesk ne cautionnent ni ne soutiennent aucune utilisation non éthique ou illégale de ce logiciel. Toute utilisation abusive, telle que l'accès non autorisé, le contrôle illégitime ou l'atteinte à la vie privée, est strictement contraire à nos directives. Les auteurs ne sauraient être tenus responsables d'une quelconque utilisation abusive de l'application.
 
-[![RelaisDesk](https://img.shields.io/badge/RelaisDesk-Official%20Website-blue)](https://relaisdesk.fr)
-[![License AGPLv3](https://img.shields.io/badge/License-GNU%20AGPLv3-green)](LICENCE)
+[![RelaisDesk](https://img.shields.io/badge/RelaisDesk-Site%20Officiel-blue)](https://relaisdesk.fr)
+[![Licence AGPLv3](https://img.shields.io/badge/Licence-GNU%20AGPLv3-green)](LICENCE)
 [![Infrastructure France](https://img.shields.io/badge/Infrastructure-France%20(Oracle)-orange)](https://relaisdesk.fr)
 
-RelaisDesk is an independent, sovereign remote desktop client and server derived from RustDesk Community, written in Rust. It incorporates RelaisDesk's peer authorization protocol, host key verification, and is configured for dedicated French relay infrastructure.
+RelaisDesk est un client et serveur de bureau à distance souverain et indépendant, dérivé de RustDesk Community, écrit en Rust. Il intègre le protocole d'autorisation par clé propre à RelaisDesk, la vérification de l'empreinte hôte, et est configuré nativement pour une infrastructure de relais dédiée située en France.
 
-![RelaisDesk Technician Dashboard](docs/screenshots/relaisdesk-espace-technicien.png)
+![Tableau de bord Technicien RelaisDesk](docs/screenshots/relaisdesk-espace-technicien.png)
 
-RelaisDesk welcomes contributions from everyone. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for help getting started.
+RelaisDesk accueille avec plaisir les contributions de chacun. Consultez [CONTRIBUTING.md](docs/CONTRIBUTING.md) pour obtenir de l'aide et bien démarrer.
 
 [**FAQ**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
 
-**RelaisDesk Distribution:** RelaisDesk binaries and packages are securely distributed through the [relaisdesk.fr](https://relaisdesk.fr) platform. Upstream RustDesk downloads are distinct products and do not include the RelaisDesk authorization gateway.
+**Distribution RelaisDesk :** Les exécutables et paquets officiels de RelaisDesk sont distribués de manière sécurisée via la plateforme [relaisdesk.fr](https://relaisdesk.fr). Les téléchargements amonts de RustDesk sont des produits distincts et n'intègrent pas la passerelle d'autorisation RelaisDesk.
 
-## Dependencies
+## Dépendances
 
-Desktop versions use Flutter or Sciter (deprecated) for GUI. This tutorial is for Sciter only, since it is easier and more friendly to start. Check out our [CI](https://github.com/rustdesk/rustdesk/blob/master/.github/workflows/flutter-build.yml) for building the Flutter version.
+Les versions de bureau utilisent Flutter ou Sciter (obsolète) pour l'interface graphique. Ce tutoriel est dédié à Sciter, étant plus simple et rapide pour débuter. Consultez notre [CI](https://github.com/rustdesk/rustdesk/blob/master/.github/workflows/flutter-build.yml) pour compiler la version Flutter.
 
-Please download Sciter dynamic library yourself.
+Veuillez télécharger vous-même la bibliothèque dynamique Sciter :
 
 [Windows](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.win/x64/sciter.dll) |
 [Linux](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so) |
 [macOS](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.osx/libsciter.dylib)
 
-## Raw Steps to build
+## Étapes brutes de compilation
 
-- Prepare your Rust development env and C++ build env
+- Préparez votre environnement de développement Rust et vos outils de compilation C++
 
-- Install [vcpkg](https://github.com/microsoft/vcpkg), and set `VCPKG_ROOT` env variable correctly
+- Installez [vcpkg](https://github.com/microsoft/vcpkg) et configurez correctement la variable d'environnement `VCPKG_ROOT` :
 
-  - Windows: vcpkg install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
-  - Linux/macOS: vcpkg install libvpx libyuv opus aom
+  - Windows : `vcpkg install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static`
+  - Linux/macOS : `vcpkg install libvpx libyuv opus aom`
 
-- run `cargo run`
+- Lancez `cargo run`
 
-## [Build](https://rustdesk.com/docs/en/dev/build/)
+## [Compilation](https://rustdesk.com/docs/en/dev/build/)
 
-## How to Build on Linux
+## Comment compiler sous Linux
 
 ### Ubuntu 18 (Debian 10)
 
@@ -88,7 +88,7 @@ sudo yum -y install gcc-c++ git curl wget nasm yasm gcc gtk3-devel clang libxcb-
 sudo pacman -Syu --needed unzip git cmake gcc curl wget yasm nasm zip make pkg-config clang gtk3 xdotool libxcb libxfixes alsa-lib pipewire
 ```
 
-### Install vcpkg
+### Installer vcpkg
 
 ```sh
 git clone https://github.com/microsoft/vcpkg
@@ -100,7 +100,7 @@ export VCPKG_ROOT=$HOME/vcpkg
 vcpkg/vcpkg install libvpx libyuv opus aom
 ```
 
-### Fix libvpx (For Fedora)
+### Corriger libvpx (Pour Fedora)
 
 ```sh
 cd vcpkg/buildtrees/libvpx/src
@@ -113,7 +113,7 @@ cp libvpx.a $HOME/vcpkg/installed/x64-linux/lib/
 cd
 ```
 
-### Build
+### Compiler
 
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -126,9 +126,9 @@ mv libsciter-gtk.so target/debug
 VCPKG_ROOT=$HOME/vcpkg cargo run
 ```
 
-## How to build with Docker
+## Comment compiler avec Docker
 
-Begin by cloning the repository and building the Docker container:
+Commencez par cloner le dépôt et construire l'image Docker :
 
 ```sh
 git clone https://github.com/rustdesk/rustdesk
@@ -137,47 +137,44 @@ git submodule update --init --recursive
 docker build -t "rustdesk-builder" .
 ```
 
-Then, each time you need to build the application, run the following command:
+Ensuite, chaque fois que vous souhaitez compiler l'application, exécutez la commande suivante :
 
 ```sh
 docker run --rm -it -v $PWD:/home/user/rustdesk -v rustdesk-git-cache:/home/user/.cargo/git -v rustdesk-registry-cache:/home/user/.cargo/registry -e PUID="$(id -u)" -e PGID="$(id -g)" rustdesk-builder
 ```
 
-Note that the first build may take longer before dependencies are cached, subsequent builds will be faster. Additionally, if you need to specify different arguments to the build command, you may do so at the end of the command in the `<OPTIONAL-ARGS>` position. For instance, if you wanted to build an optimized release version, you would run the command above followed by `--release`. The resulting executable will be available in the target folder on your system, and can be run with:
+Notez que la première compilation peut prendre plus de temps avant que les dépendances ne soient mises en cache ; les compilations suivantes seront bien plus rapides. De plus, si vous souhaitez spécifier différents arguments pour la commande de compilation, vous pouvez le faire à la fin de la commande. Par exemple, pour compiler une version release optimisée, exécutez la commande ci-dessus suivie de `--release`. L'exécutable résultant sera disponible dans le dossier cible (`target`) sur votre système, et peut être lancé avec :
 
 ```sh
 target/debug/rustdesk
 ```
 
-Or, if you're running a release executable:
+Ou si vous exécutez un exécutable de release :
 
 ```sh
 target/release/rustdesk
 ```
 
-Please ensure that you run these commands from the root of the RustDesk repository, or the application may not find the required resources. Also note that other cargo subcommands such as `install` or `run` are not currently supported via this method as they would install or run the program inside the container instead of the host.
+Veillez à exécuter ces commandes depuis la racine du dépôt RelaisDesk/RustDesk, sinon l'application ne pourra pas charger les ressources nécessaires. Notez également que les autres sous-commandes cargo telles que `install` ou `run` ne sont actuellement pas prises en charge via cette méthode, car elles installeraient ou exécuteraient le programme à l'intérieur du conteneur au lieu de l'hôte.
 
-## File Structure
+## Structure des fichiers
 
-- **[libs/hbb_common](https://github.com/rustdesk/rustdesk/tree/master/libs/hbb_common)**: video codec, config, tcp/udp wrapper, protobuf, fs functions for file transfer, and some other utility functions
-- **[libs/scrap](https://github.com/rustdesk/rustdesk/tree/master/libs/scrap)**: screen capture
-- **[libs/enigo](https://github.com/rustdesk/rustdesk/tree/master/libs/enigo)**: platform specific keyboard/mouse control
-- **[libs/clipboard](https://github.com/rustdesk/rustdesk/tree/master/libs/clipboard)**: file copy and paste implementation for Windows, Linux, macOS.
-- **[src/ui](https://github.com/rustdesk/rustdesk/tree/master/src/ui)**: obsolete Sciter UI (deprecated)
-- **[src/server](https://github.com/rustdesk/rustdesk/tree/master/src/server)**: audio/clipboard/input/video services, and network connections
-- **[src/client.rs](https://github.com/rustdesk/rustdesk/tree/master/src/client.rs)**: start a peer connection
-- **[src/rendezvous_mediator.rs](https://github.com/rustdesk/rustdesk/tree/master/src/rendezvous_mediator.rs)**: Communicate with [rustdesk-server](https://github.com/rustdesk/rustdesk-server), wait for remote direct (TCP hole punching) or relayed connection
-- **[src/platform](https://github.com/rustdesk/rustdesk/tree/master/src/platform)**: platform specific code
-- **[flutter](https://github.com/rustdesk/rustdesk/tree/master/flutter)**: Flutter code for desktop and mobile
-- **[flutter/web/js](https://github.com/rustdesk/rustdesk/tree/master/flutter/web/v1/js)**: JavaScript for Flutter web client
+- **[libs/hbb_common](https://github.com/rustdesk/rustdesk/tree/master/libs/hbb_common)** : codecs vidéo, configuration, abstractions TCP/UDP, Protobuf, fonctions de système de fichiers pour le transfert de fichiers et autres fonctions utilitaires.
+- **[libs/scrap](https://github.com/rustdesk/rustdesk/tree/master/libs/scrap)** : capture d'écran.
+- **[libs/enigo](https://github.com/rustdesk/rustdesk/tree/master/libs/enigo)** : contrôle du clavier et de la souris selon la plateforme.
+- **[libs/clipboard](https://github.com/rustdesk/rustdesk/tree/master/libs/clipboard)** : gestion du copier-coller et transfert de presse-papiers sous Windows, Linux et macOS.
+- **[src/ui](https://github.com/rustdesk/rustdesk/tree/master/src/ui)** : interface Sciter historique (dépréciée).
+- **[src/server](https://github.com/rustdesk/rustdesk/tree/master/src/server)** : services audio, presse-papiers, saisie utilisateur, vidéo et gestion des connexions réseau.
+- **[src/client.rs](https://github.com/rustdesk/rustdesk/tree/master/src/client.rs)** : initialisation et gestion d'une connexion pair-à-pair.
+- **[src/rendezvous_mediator.rs](https://github.com/rustdesk/rustdesk/tree/master/src/rendezvous_mediator.rs)** : communication avec le serveur de médiation ([rustdesk-server](https://github.com/rustdesk/rustdesk-server)), négociation de connexion directe (perforation TCP hole punching) ou relayée.
+- **[src/platform](https://github.com/rustdesk/rustdesk/tree/master/src/platform)** : code propre à chaque système d'exploitation.
+- **[flutter](https://github.com/rustdesk/rustdesk/tree/master/flutter)** : code Flutter pour desktop et mobile.
+- **[flutter/web/js](https://github.com/rustdesk/rustdesk/tree/master/flutter/web/v1/js)** : JavaScript pour le client web Flutter.
 
-## Screenshots
+## Captures d'écran
 
-### RelaisDesk Technician Dashboard (Fleet Management & Remote Access)
-![RelaisDesk Technician Dashboard](docs/screenshots/relaisdesk-espace-technicien.png)
+### Tableau de bord Technicien RelaisDesk (Gestion de parc & accès distant)
+![Tableau de bord Technicien RelaisDesk](docs/screenshots/relaisdesk-espace-technicien.png)
 
-### Live Remote Desktop Session
-![RelaisDesk Live Session](docs/screenshots/relaisdesk-session-distante.png)
-
-
-
+### Session de contrôle à distance en direct
+![Session distante RelaisDesk](docs/screenshots/relaisdesk-session-distante.png)
