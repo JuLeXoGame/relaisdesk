@@ -83,6 +83,7 @@ pub struct Remote<T: InvokeUiSession> {
     chroma: Arc<RwLock<Option<Chroma>>>,
     last_record_state: bool,
     sent_close_reason: bool,
+    relaisdesk_meter: Option<crate::relaisdesk_meter::Meter>,
 }
 
 #[derive(Default)]
@@ -132,10 +133,24 @@ impl<T: InvokeUiSession> Remote<T> {
             chroma: Default::default(),
             last_record_state: false,
             sent_close_reason: false,
+            relaisdesk_meter: None,
         }
     }
 
     pub async fn io_loop(&mut self, key: &str, token: &str, round: u32) {
+        self.is_connected = false;
+        self.relaisdesk_meter = None;
+        if self.handler.is_default() {
+            match crate::relaisdesk_meter::Meter::open(&self.handler.get_id()).await {
+                Ok(meter) => self.relaisdesk_meter = meter,
+                Err(err) => {
+                    self.handler.msgbox("error", "RelaisDesk", &err.to_string(), "");
+                    self.handle_disconnected(round);
+                    self.relaisdesk_meter = None;
+                    return;
+                }
+            }
+        }
         #[cfg(target_os = "windows")]
         let _file_clip_context_holder = {
             // `is_port_forward()` will not reach here, but we still check it for clarity.
@@ -196,6 +211,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         tokio::time::sleep(KCP_CLOSE_REASON_FLUSH_DELAY).await;
                     }
                     self.handle_disconnected(round);
+                    self.relaisdesk_meter = None;
                     return;
                 }
                 self.handler.update_direct(Some(direct));
@@ -307,6 +323,10 @@ impl<T: InvokeUiSession> Remote<T> {
                             }
                         }
                         _ = status_timer.tick() => {
+                            if self.relaisdesk_meter.as_ref().map(|m| m.failed()).unwrap_or(false) {
+                                self.send_close_reason(&mut peer, "RelaisDesk: suivi de prestation interrompu").await;
+                                break;
+                            }
                             if self.handler.is_restarting_remote_device()
                                 && last_recv_time.elapsed() >= RESTART_REMOTE_DEVICE_NO_DATA_TIMEOUT
                             {
@@ -370,6 +390,7 @@ impl<T: InvokeUiSession> Remote<T> {
             }
         }
         self.handle_disconnected(round);
+        self.relaisdesk_meter = None;
     }
 
     fn handle_disconnected(&self, round: u32) {
@@ -1330,6 +1351,9 @@ impl<T: InvokeUiSession> Remote<T> {
 
     async fn handle_msg_from_peer(&mut self, data: &[u8], peer: &mut Stream) -> bool {
         if let Ok(msg_in) = Message::parse_from_bytes(&data) {
+            if self.is_connected {
+                if let Some(meter) = self.relaisdesk_meter.as_ref() { meter.confirm(); }
+            }
             match msg_in.union {
                 Some(message::Union::VideoFrame(vf)) => {
                     if !self.first_frame {
@@ -1463,6 +1487,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
 
                         self.is_connected = true;
+                        if let Some(meter) = self.relaisdesk_meter.as_ref() { meter.confirm(); }
                     }
                     _ => {}
                 },
