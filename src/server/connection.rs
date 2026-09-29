@@ -2794,6 +2794,13 @@ impl Connection {
         }
     }
 
+    // A TestDelay echo only owes a session proof when the server has an outstanding
+    // challenge for a leased peer. The first ping is sent before login without a
+    // challenge, so its echo must never close the session.
+    fn relaisdesk_test_delay_proof_required(has_lease: bool, outstanding_challenge: &str) -> bool {
+        has_lease && !outstanding_challenge.is_empty()
+    }
+
     async fn on_message(&mut self, msg: Message) -> bool {
         if let Some(message::Union::Misc(misc)) = &msg.union {
             // Move the CloseReason forward, as this message needs to be received when unauthorized, especially for kcp.
@@ -3103,8 +3110,9 @@ impl Connection {
                 }
             }
         } else if let Some(message::Union::TestDelay(t)) = msg.union {
-            if !t.from_client && self.relaisdesk_peer.is_some() {
-                if t.relaisdesk_challenge != self.relaisdesk_challenge || self.relaisdesk_challenge.is_empty() { return false; }
+            // No proof can be expected when no challenge is outstanding (pre-login echo).
+            if !t.from_client && Self::relaisdesk_test_delay_proof_required(self.relaisdesk_peer.is_some(), &self.relaisdesk_challenge) {
+                if t.relaisdesk_challenge != self.relaisdesk_challenge { return false; }
                 match crate::relaisdesk_auth::verify_peer(t.relaisdesk_authorization.as_ref(), &self.relaisdesk_challenge, self.relaisdesk_peer.as_ref()) {
                     Ok(lease) => self.relaisdesk_peer = lease,
                     Err(err) => { self.send_close_reason_no_retry(&format!("RelaisDesk: {err}")).await; return false; }
@@ -7235,6 +7243,19 @@ mod test {
         };
         assert_ne!(scope(&first), scope(&terminal("")));
         assert_ne!(scope(&terminal("a")), scope(&terminal("b")));
+    }
+
+    #[test]
+    fn test_delay_echo_without_outstanding_challenge_needs_no_proof() {
+        // The pre-login ping carries no challenge; its echo must never close an
+        // authorized session, whether a peer lease was granted since or not.
+        assert!(!Connection::relaisdesk_test_delay_proof_required(false, ""));
+        assert!(!Connection::relaisdesk_test_delay_proof_required(false, "challenge"));
+        assert!(!Connection::relaisdesk_test_delay_proof_required(true, ""));
+        assert!(Connection::relaisdesk_test_delay_proof_required(
+            true,
+            "challenge"
+        ));
     }
 
     #[test]

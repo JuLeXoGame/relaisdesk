@@ -4361,6 +4361,14 @@ pub mod peer_online {
                         let states = online_response.states;
                         let mut onlines = Vec::new();
                         let mut offlines = Vec::new();
+                        // The bitmap comes from the network: a short states vec must not panic.
+                        if states.len() < (ids.len() + 7) / 8 {
+                            bail!(
+                                "Online response states too short: {} < {}",
+                                states.len(),
+                                (ids.len() + 7) / 8
+                            );
+                        }
                         for i in 0..ids.len() {
                             // bytes index from left to right
                             let bit_value = 0x01 << (7 - i % 8);

@@ -358,7 +358,10 @@ pub unsafe fn device_io_control(
         return Err(DeviceError::new_api_last_err("DeviceIoControl"));
     }
     if outbuf_max_len > 0 {
-        outbuf.set_len(bytes_returned as _);
+        // Never trust the driver inside unsafe code: clamp to the allocation,
+        // otherwise set_len could expose uninitialized memory.
+        let len = (bytes_returned as usize).min(outbuf.capacity());
+        outbuf.set_len(len);
         Ok(outbuf)
     } else {
         Ok(Vec::new())

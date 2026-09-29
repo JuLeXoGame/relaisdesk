@@ -509,7 +509,16 @@ pub(super) mod install {
         let mut zip = ZipArchive::new(BufReader::new(File::open(filename)?))?;
         for i in 0..zip.len() {
             let mut file = zip.by_index(i)?;
-            let file_path = target_dir.join(file.name());
+            // Reject entries escaping the plugin directory (ZipSlip: absolute
+            // paths or "../" components).
+            let safe_name = match file.enclosed_name() {
+                Some(name) => name.to_owned(),
+                None => {
+                    log::error!("Skipping unsafe plugin archive entry: {}", file.name());
+                    continue;
+                }
+            };
+            let file_path = target_dir.join(safe_name);
             if file.name().ends_with("/") {
                 std::fs::create_dir_all(&file_path)?;
             } else {

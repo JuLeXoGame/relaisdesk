@@ -228,7 +228,9 @@ fn cmd_parent(child: Pid, master: OwnedFd) -> ResultType<()> {
         let errno = std::io::Error::last_os_error();
         bail!("fcntl error: {errno:?}");
     }
-    let mut file = unsafe { File::from_raw_fd(raw_fd) };
+    // Transfer ownership to the File: master is consumed here and must never
+    // be dropped afterwards, otherwise the same fd would be closed twice.
+    let mut file = unsafe { File::from_raw_fd(master.into_raw_fd()) };
     let mut stdout = std::io::stdout();
     let stdin = std::io::stdin();
     let stdin_fd = stdin.as_raw_fd();
@@ -334,7 +336,9 @@ fn ui_parent(
         tx_to_ui.send(Message::ErrorDialog(format!("fcntl error: {errno:?}")))?;
         bail!("fcntl error: {errno:?}");
     }
-    let mut file = unsafe { File::from_raw_fd(raw_fd) };
+    // Transfer ownership to the File (raw_fd stays usable as a plain fd number,
+    // but master is consumed and must never be dropped or closed twice).
+    let mut file = unsafe { File::from_raw_fd(master.into_raw_fd()) };
 
     let mut first = initial_password.is_none();
     let mut su_password_sent = false;

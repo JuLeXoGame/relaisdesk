@@ -45,9 +45,16 @@ impl PluginNativeHandler for PluginNativeSessionHandler {
             "create_session" => {
                 if let Some(id) = data.get("id") {
                     if let Some(id) = id.as_str() {
+                        let session_id = SESSION_HANDLER.create_session(id.to_string());
+                        // NR.data crosses the FFI boundary, so it must stay valid after this
+                        // call returns: hand over a stable nul-terminated buffer owned by
+                        // librustdesk instead of a pointer to a dropped temporary.
+                        let leaked = std::ffi::CString::new(session_id)
+                            .unwrap_or_default()
+                            .into_raw();
                         return Some(super::NR {
                             return_type: 1,
-                            data: SESSION_HANDLER.create_session(id.to_string()).as_ptr() as _,
+                            data: leaked as _,
                         });
                     }
                 }
@@ -173,6 +180,9 @@ impl PluginNativeSessionHandler {
                 sessions[i].close_event_stream();
                 sessions[i].close();
                 sessions.remove(i);
+                // Session ids are unique: stop here, otherwise the shifted
+                // indexes would skip an element and overrun the shortened vec.
+                break;
             }
         }
     }

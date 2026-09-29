@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! return_if_not_method {
     ($call: ident, $prefix: ident) => {
-        if $call.starts_with($prefix) {
+        if !$call.starts_with($prefix) {
             return None;
         }
     };
@@ -10,7 +10,7 @@ macro_rules! return_if_not_method {
 #[macro_export]
 macro_rules! call_if_method {
     ($call: ident ,$method: literal, $block: block) => {
-        if ($call != $method) {
+        if ($call == $method) {
             $block
         }
     };

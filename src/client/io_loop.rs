@@ -84,6 +84,7 @@ pub struct Remote<T: InvokeUiSession> {
     last_record_state: bool,
     sent_close_reason: bool,
     relaisdesk_meter: Option<crate::relaisdesk_meter::Meter>,
+    relaisdesk_intervention: Option<crate::relaisdesk_intervention::Tracker>,
 }
 
 #[derive(Default)]
@@ -134,19 +135,35 @@ impl<T: InvokeUiSession> Remote<T> {
             last_record_state: false,
             sent_close_reason: false,
             relaisdesk_meter: None,
+            relaisdesk_intervention: None,
         }
     }
 
     pub async fn io_loop(&mut self, key: &str, token: &str, round: u32) {
         self.is_connected = false;
         self.relaisdesk_meter = None;
+        self.relaisdesk_intervention = None;
         if self.handler.is_default() {
             match crate::relaisdesk_meter::Meter::open(&self.handler.get_id()).await {
                 Ok(meter) => self.relaisdesk_meter = meter,
                 Err(err) => {
-                    self.handler.msgbox("error", "RelaisDesk", &err.to_string(), "");
+                    self.handler
+                        .msgbox("error", "RelaisDesk", &err.to_string(), "");
                     self.handle_disconnected(round);
                     self.relaisdesk_meter = None;
+                    return;
+                }
+            }
+        }
+        if self.handler.is_default() {
+            match crate::relaisdesk_intervention::Tracker::open(&self.handler.get_id()).await {
+                Ok(tracker) => self.relaisdesk_intervention = tracker,
+                Err(err) => {
+                    self.handler
+                        .msgbox("error", "RelaisDesk", &err.to_string(), "");
+                    self.handle_disconnected(round);
+                    self.relaisdesk_meter = None;
+                    self.relaisdesk_intervention = None;
                     return;
                 }
             }
@@ -212,6 +229,9 @@ impl<T: InvokeUiSession> Remote<T> {
                     }
                     self.handle_disconnected(round);
                     self.relaisdesk_meter = None;
+                    if let Some(tracker) = self.relaisdesk_intervention.take() {
+                        tracker.close().await;
+                    }
                     return;
                 }
                 self.handler.update_direct(Some(direct));
@@ -323,8 +343,9 @@ impl<T: InvokeUiSession> Remote<T> {
                             }
                         }
                         _ = status_timer.tick() => {
-                            if self.relaisdesk_meter.as_ref().map(|m| m.failed()).unwrap_or(false) {
-                                self.send_close_reason(&mut peer, "RelaisDesk: suivi de prestation interrompu").await;
+                            if self.relaisdesk_meter.as_ref().map(|m| m.failed()).unwrap_or(false)
+                                || self.relaisdesk_intervention.as_ref().map(|t| t.failed()).unwrap_or(false) {
+                                self.send_close_reason(&mut peer, "RelaisDesk: suivi local interrompu").await;
                                 break;
                             }
                             if self.handler.is_restarting_remote_device()
@@ -391,6 +412,9 @@ impl<T: InvokeUiSession> Remote<T> {
         }
         self.handle_disconnected(round);
         self.relaisdesk_meter = None;
+        if let Some(tracker) = self.relaisdesk_intervention.take() {
+            tracker.close().await;
+        }
     }
 
     fn handle_disconnected(&self, round: u32) {
@@ -1352,7 +1376,9 @@ impl<T: InvokeUiSession> Remote<T> {
     async fn handle_msg_from_peer(&mut self, data: &[u8], peer: &mut Stream) -> bool {
         if let Ok(msg_in) = Message::parse_from_bytes(&data) {
             if self.is_connected {
-                if let Some(meter) = self.relaisdesk_meter.as_ref() { meter.confirm(); }
+                if let Some(meter) = self.relaisdesk_meter.as_ref() {
+                    meter.confirm();
+                }
             }
             match msg_in.union {
                 Some(message::Union::VideoFrame(vf)) => {
@@ -1487,7 +1513,12 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
 
                         self.is_connected = true;
-                        if let Some(meter) = self.relaisdesk_meter.as_ref() { meter.confirm(); }
+                        if let Some(meter) = self.relaisdesk_meter.as_ref() {
+                            meter.confirm();
+                        }
+                        if let Some(tracker) = self.relaisdesk_intervention.as_ref() {
+                            tracker.confirm();
+                        }
                     }
                     _ => {}
                 },
