@@ -1,0 +1,15 @@
+name: RelaisDesk macOS build (on demand)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-macos-build:
+    uses: ./.github/workflows/flutter-build.yml
+    secrets: inherit
+    with:
+      upload-artifact: true
+      upload-tag: "nightly"
+      build_windows_sciter: false
+      build_mobile_and_macos: true
+      build_linux_extras: false
