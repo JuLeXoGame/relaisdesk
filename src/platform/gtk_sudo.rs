@@ -22,7 +22,7 @@ use std::{
     ffi::CString,
     fs::File,
     io::{Read, Write},
-    os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd},
+    os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
