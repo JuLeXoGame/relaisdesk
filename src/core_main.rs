@@ -457,6 +457,42 @@ pub fn core_main() -> Option<Vec<String>> {
                 }
             }
             return None;
+        } else if args[0] == "--password-file" {
+            // Same as --password, but the secret comes from a file instead
+            // of argv (argv is world-readable via ps; the launcher passes a
+            // one-shot 0600 handoff file).
+            if is_cli_setting_change_disabled() {
+                println!("Settings are disabled!");
+                return None;
+            }
+            if config::Config::is_disable_change_permanent_password() {
+                println!("Changing permanent password is disabled!");
+                return None;
+            }
+            if args.len() == 2 {
+                if crate::platform::is_installed() && is_root() {
+                    match std::fs::read_to_string(&args[1]) {
+                        Ok(content) => {
+                            let password = content.trim().to_owned();
+                            if password.is_empty() || password.len() > 4096 {
+                                println!("Invalid password file!");
+                            } else if let Err(err) =
+                                crate::ipc::set_permanent_password(password)
+                            {
+                                println!("{err}");
+                            } else {
+                                println!("Done!");
+                            }
+                        }
+                        Err(err) => {
+                            println!("Cannot read password file: {err}");
+                        }
+                    }
+                } else {
+                    println!("Installation and administrative privileges required!");
+                }
+            }
+            return None;
         } else if args[0] == "--set-unlock-pin" {
             if config::Config::is_disable_unlock_pin() {
                 println!("Unlock PIN is disabled!");

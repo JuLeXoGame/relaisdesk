@@ -268,16 +268,11 @@ pub async fn create_tcp_connection(
         }
         log::info!("wake up macos");
     }
-    let authorization_guard = if crate::relaisdesk_auth::is_configured() {
-        let rendezvous_server = Config::get_rendezvous_server();
-        let guard = crate::client::hc_connection(0, rendezvous_server, "").await;
-        if guard.is_none() {
-            bail!("RelaisDesk authorization channel is unavailable");
-        }
-        guard
-    } else {
-        None
-    };
+    // No authorization channel yet: opening one outbound rendezvous connection
+    // per inbound (unauthenticated) TCP connection would let scanners flood
+    // our own infrastructure. The guard is created lazily after login (see
+    // the second_timer arm in Connection::start).
+    let authorization_guard = None;
     Connection::start(
         addr,
         stream,

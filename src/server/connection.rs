@@ -1102,6 +1102,21 @@ impl Connection {
                     }
                 }
                 _ = second_timer.tick() => {
+                    // Lazy authorization channel (created post-login, at most
+                    // ~1s after): opening it at TCP accept would give every
+                    // unauthenticated peer a free outbound connection + task
+                    // against our rendezvous infrastructure.
+                    if conn.authorized && authorization_guard.is_none() && crate::relaisdesk_auth::is_configured() {
+                        let rendezvous_server = Config::get_rendezvous_server();
+                        match crate::client::hc_connection(0, rendezvous_server, "").await {
+                            Some(guard) => authorization_guard = Some(guard),
+                            None => {
+                                conn.send_close_reason_no_retry("RelaisDesk authorization channel is unavailable").await;
+                                conn.on_close("RelaisDesk authorization unavailable", false).await;
+                                break;
+                            }
+                        }
+                    }
                     if conn.relaisdesk_peer.as_ref().map(|lease| !lease.is_current()).unwrap_or(false) {
                         conn.send_close_reason_no_retry("RelaisDesk: autorisation du technicien expirée").await;
                         conn.on_close("RelaisDesk peer authorization expired", true).await;

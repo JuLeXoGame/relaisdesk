@@ -35,7 +35,9 @@ mod appl {
             // Only service is required -> initialize handle
             let mut handle: *mut PamHandle = std::ptr::null_mut();
 
-            let user_ptr = super::try_str_option_to_ptr(user)?;
+            // The guard keeps the CString alive across pam_start; dropping it
+            // first would hand PAM a dangling pointer.
+            let (_user_guard, user_ptr) = super::try_str_option_to_ptr(user)?;
             match unsafe { ffi::pam_start(service.as_ptr(), user_ptr, conversation, &mut handle) }
                 .into()
             {
@@ -313,7 +315,8 @@ mod modules {
         // For some reason, bindgen marks the handl as mutable in pam_sys although man says const
         let handle = handle as *const PamHandle as *mut PamHandle;
         let mut user_ptr: *const c_char = std::ptr::null();
-        let prompt_ptr = super::try_str_option_to_ptr(prompt)?;
+        // Guard keeps the CString alive across pam_get_user (see start()).
+        let (_prompt_guard, prompt_ptr) = super::try_str_option_to_ptr(prompt)?;
 
         match unsafe { ffi::pam_get_user(handle, &mut user_ptr, prompt_ptr) }.into() {
             PamReturnCode::Success => {
@@ -336,13 +339,50 @@ fn buffer_error<T>() -> crate::PamResult<T> {
     Err(crate::PamReturnCode::Buf_Err.into())
 }
 
-fn try_str_option_to_ptr(opt: Option<&str>) -> crate::PamResult<*const libc::c_char> {
+fn try_str_option_to_ptr(
+    opt: Option<&str>,
+) -> crate::PamResult<(Option<std::ffi::CString>, *const libc::c_char)> {
     match opt.map(std::ffi::CString::new) {
-        // Valid string given -> Return ptr of the converted CString
-        Some(Ok(content)) => Ok(content.as_ptr()),
+        // Valid string given -> Return the CString plus its ptr. The caller
+        // must hold the CString until the FFI call using the ptr returns:
+        // returning the bare ptr would dangle (content dropped here).
+        Some(Ok(content)) => {
+            let ptr = content.as_ptr();
+            Ok((Some(content), ptr))
+        }
         // No string given -> Return null-ptr
-        None => Ok(std::ptr::null_mut()),
+        None => Ok((None, std::ptr::null_mut())),
         // Invalid string given -> Return BUF_ERR
         _ => Err(crate::PamReturnCode::Buf_Err.into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::try_str_option_to_ptr;
+    use std::ffi::CStr;
+
+    #[test]
+    fn none_maps_to_null() {
+        let (guard, ptr) = try_str_option_to_ptr(None).expect("None must map");
+        assert!(guard.is_none());
+        assert!(ptr.is_null());
+    }
+
+    #[test]
+    fn some_stays_readable_through_guard() {
+        let (guard, ptr) =
+            try_str_option_to_ptr(Some("relaisdesk")).expect("valid str must map");
+        assert!(!ptr.is_null());
+        // Reading through the ptr while the guard is alive must yield the
+        // original string; without the guard this would be use-after-free.
+        let back = unsafe { CStr::from_ptr(ptr) }.to_str().expect("utf8");
+        assert_eq!(back, "relaisdesk");
+        assert!(guard.is_some());
+    }
+
+    #[test]
+    fn interior_nul_is_rejected() {
+        assert!(try_str_option_to_ptr(Some("a\0b")).is_err());
     }
 }

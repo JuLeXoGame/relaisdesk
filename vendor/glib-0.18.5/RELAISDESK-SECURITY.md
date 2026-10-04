@@ -13,9 +13,10 @@ https://github.com/gtk-rs/gtk-rs-core/pull/1343
 Merge commit: 05dff0ee696f9bcd8617cd48c4b812d046d440cb
 Advisory: https://rustsec.org/advisories/RUSTSEC-2024-0429.html
 
-The added regression test covers forward, reverse and mixed iteration,
-nth, nth_back, last and exhaustion, including UTF-8 strings. Run it in release
-mode, because optimization exposed the original undefined behaviour.
+No VariantStrIter regression test is vendored here: verification is that
+the two backported lines match upstream PR #1343 exactly and that the
+existing variant_iter tests (variant, array, tuple, dictentry, map) still
+pass. Upstream covers forward, reverse and mixed iteration in its own tree.
 
 Registry glib <0.20 remains affected. A scanner reporting only the retained
 version may still alert: the path patch and regression tests are required

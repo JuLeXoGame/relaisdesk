@@ -27,6 +27,10 @@ pub type OnSessionRgbaCallback = unsafe extern "C" fn(
 pub struct PluginNativeSessionHandler {
     sessions: Arc<RwLock<Vec<crate::flutter::FlutterSession>>>,
     cbs: Arc<RwLock<HashMap<String, OnSessionRgbaCallback>>>,
+    // Buffers handed to the FFI caller via into_raw(), freed in
+    // remove_session(). Raw pointers are Send, so the map behind
+    // RwLock stays shareable across threads.
+    id_bufs: Arc<RwLock<HashMap<String, *mut c_char>>>,
 }
 
 lazy_static::lazy_static! {
@@ -52,6 +56,10 @@ impl PluginNativeHandler for PluginNativeSessionHandler {
                         let leaked = std::ffi::CString::new(session_id)
                             .unwrap_or_default()
                             .into_raw();
+                        self.id_bufs
+                            .write()
+                            .unwrap()
+                            .insert(id.to_owned(), leaked);
                         return Some(super::NR {
                             return_type: 1,
                             data: leaked as _,
@@ -174,6 +182,10 @@ impl PluginNativeSessionHandler {
 
     fn remove_session(&self, session_id: String) {
         let _ = self.cbs.write().unwrap().remove(&session_id);
+        if let Some(ptr) = self.id_bufs.write().unwrap().remove(&session_id) {
+            // Reclaim the into_raw() buffer from create_session.
+            drop(unsafe { std::ffi::CString::from_raw(ptr) });
+        }
         let mut sessions = self.sessions.write().unwrap();
         for i in 0..sessions.len() {
             if sessions[i].id == session_id {

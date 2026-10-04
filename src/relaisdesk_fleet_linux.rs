@@ -27,7 +27,9 @@ struct Response {
 }
 
 pub(super) fn authorization(action: &str) -> ResultType<AuthorizationProof> {
-    if Config::get_option("relaisdesk-proof-socket") != SOCKET
+    // Trim like is_configured(): a stray whitespace must not make the
+    // client "configured" while every authorization() bails.
+    if Config::get_option("relaisdesk-proof-socket").trim() != SOCKET
         || action.is_empty()
         || action.len() > 512
         || action.contains(['\r', '\n', '\0'])

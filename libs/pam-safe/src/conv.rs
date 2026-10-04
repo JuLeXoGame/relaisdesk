@@ -141,6 +141,13 @@ pub(crate) unsafe extern "C" fn converse<C: Conversation>(
 
     // free allocated memory if an error occured
     if result != PamReturnCode::Success {
+        // calloc zeroed the array, so unset entries are null.
+        for i in 0..num_msg as isize {
+            let r: &mut PamResponse = &mut *(resp.offset(i));
+            if !r.resp.is_null() {
+                free(r.resp as *mut c_void);
+            }
+        }
         free(resp as *mut c_void);
     } else {
         *out_resp = resp;

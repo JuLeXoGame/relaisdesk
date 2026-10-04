@@ -101,6 +101,21 @@ impl Meter {
                     (s.clock.started(), s.clock.millis(), s.finished)
                 };
                 if finished && sequence == 0 {
+                    // Confirm + drop landed before the first poll: still emit
+                    // one final pulse so the bridge learns the session closed.
+                    let body = Pulse {
+                        kind: "ready",
+                        connection: &connection,
+                        sequence: 0,
+                        cumulative_ms: 0,
+                        closed: true,
+                    };
+                    let _ = client
+                        .post(&binding.endpoint)
+                        .bearer_auth(&binding.secret)
+                        .json(&body)
+                        .send()
+                        .await;
                     break;
                 }
                 if started {
@@ -114,7 +129,9 @@ impl Meter {
                     connection: &connection,
                     sequence,
                     cumulative_ms: millis.saturating_sub(baseline),
-                    closed: finished && sequence > 1,
+                    // finished is terminal (set once, in Drop): when it is
+                    // observed the session is over, whatever the sequence.
+                    closed: finished,
                 };
                 let sent = client
                     .post(&binding.endpoint)

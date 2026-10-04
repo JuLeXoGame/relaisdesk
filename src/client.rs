@@ -1353,6 +1353,52 @@ impl AudioBuffer {
     }
 }
 
+#[cfg(all(test, not(target_os = "linux")))]
+mod audio_buffer_tests {
+    use super::AudioBuffer;
+    use ringbuf::traits::Consumer;
+    use std::sync::{Arc, Mutex};
+
+    fn buffer_with(capacity: usize) -> AudioBuffer {
+        AudioBuffer(
+            Arc::new(Mutex::new(ringbuf::HeapRb::<f32>::new(capacity))),
+            1,
+            [0; 30],
+        )
+    }
+
+    fn drained(rb: &AudioBuffer) -> Vec<f32> {
+        let mut lock = rb.0.lock().unwrap();
+        let mut out = Vec::new();
+        while let Some(v) = lock.try_pop() {
+            out.push(v);
+        }
+        out
+    }
+
+    #[test]
+    fn overflow_keeps_newest_samples() {
+        // Guard for the ringbuf 0.3 -> 0.5 migration: the preceding skip()
+        // frees exactly the incoming length, so the non-overwriting
+        // push_slice can never drop newest data on this path.
+        let rb = buffer_with(8);
+        assert_eq!(rb.append_pcm2(&[1.0, 2.0, 3.0, 4.0, 5.0]), 5);
+        assert_eq!(rb.append_pcm2(&[6.0, 7.0, 8.0, 9.0, 10.0]), 8);
+        assert_eq!(
+            drained(&rb),
+            vec![3.0f32, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+        );
+    }
+
+    #[test]
+    fn oversize_chunk_keeps_its_tail() {
+        let rb = buffer_with(4);
+        assert_eq!(rb.append_pcm2(&[1.0, 2.0]), 2);
+        assert_eq!(rb.append_pcm2(&[3.0, 4.0, 5.0, 6.0, 7.0]), 4);
+        assert_eq!(drained(&rb), vec![4.0f32, 5.0, 6.0, 7.0]);
+    }
+}
+
 impl AudioHandler {
     #[cfg(target_os = "linux")]
     fn start_audio(&mut self, format0: AudioFormat) -> ResultType<()> {
