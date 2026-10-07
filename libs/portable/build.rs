@@ -9,6 +9,8 @@ fn main() {
                 winapi::um::winnt::SUBLANG_ENGLISH_US,
             ))
             .set_manifest_file("../../res/manifest.xml");
+        println!("cargo:rerun-if-changed=../../res/icon.ico");
+        println!("cargo:rerun-if-changed=../../res/manifest.xml");
         match res.compile() {
             Err(e) => {
                 write!(std::io::stderr(), "{}", e).unwrap();
