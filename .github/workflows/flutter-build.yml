@@ -1713,6 +1713,30 @@ jobs:
                 mv "$name" /workspace/"${name%%.rpm}-suse.rpm"
             done
 
+      # A Flutter engine/app mismatch aborts here (Invalid vm isolate snapshot)
+      # instead of shipping a deb whose GUI and --password-file crash. Runs the
+      # installed deb like production does (dpkg + service + IPC password set).
+      # x86_64 only: aarch64 ships a flutter-elinux build, which needs a Wayland
+      # compositor rather than xvfb.
+      - name: Smoke test installed deb (Dart VM + IPC password)
+        if: matrix.job.arch == 'x86_64'
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null || { sudo apt-get update -y && sudo apt-get install -y xvfb; }
+          deb=$(ls rustdesk-*-x86_64.deb | head -n 1)
+          sudo dpkg -i "$deb" || sudo apt-get install -f -y
+          for i in $(seq 1 30); do
+            sudo systemctl is-active --quiet rustdesk.service && break
+            sleep 2
+          done
+          sudo systemctl is-active --quiet rustdesk.service
+          printf '%s' 'smoke-test-pass-123' > /tmp/relaisdesk-smoke-pw
+          chmod 600 /tmp/relaisdesk-smoke-pw
+          out=$(timeout 120 sudo xvfb-run -a /usr/bin/rustdesk --password-file /tmp/relaisdesk-smoke-pw)
+          echo "$out"
+          echo "$out" | grep -q '^Done!$'
+          rm -f /tmp/relaisdesk-smoke-pw
+
       - name: Upload debian/rpm packages
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
