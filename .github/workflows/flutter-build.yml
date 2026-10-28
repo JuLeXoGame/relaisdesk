@@ -27,9 +27,9 @@ on:
 # in this file!
 
 env:
-  SCITER_RUST_VERSION: "1.88" # Minimum supported by the locked dependency graph.
-  RUST_VERSION: "1.88" # Minimum supported by the locked dependency graph.
-  MAC_RUST_VERSION: "1.88" # Minimum supported by the locked dependency graph.
+  SCITER_RUST_VERSION: "1.90.0" # The locked AES dependency requires Rust >= 1.89.
+  RUST_VERSION: "1.90.0"
+  MAC_RUST_VERSION: "1.90.0"
   CARGO_NDK_VERSION: "3.1.2"
   SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
   SCITER_NASM_DEBVERSION: "2.15.05-1"

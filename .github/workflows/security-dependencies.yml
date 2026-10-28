@@ -52,7 +52,7 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
-          toolchain: "1.88.0"
+          toolchain: "1.90.0"
       - run: cargo test --locked -p atty --lib
       - name: Test overwrite confirmation without the obsolete password dependency
         if: hashFiles('libs/scrap/examples/support/input.rs') != ''
@@ -90,6 +90,6 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
-          toolchain: "1.88.0"
+          toolchain: "1.90.0"
       - run: sudo apt-get update && sudo apt-get install -y clang libclang-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxfixes-dev libxtst-dev
       - run: cargo test --locked -p clipboard --features unix-file-copy-paste --lib
