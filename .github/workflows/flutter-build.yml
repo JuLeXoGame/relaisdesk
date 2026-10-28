@@ -502,6 +502,7 @@ jobs:
           # Patch sciter x86
           sed -i 's/branch = "dyn"/branch = "dyn_x86"/g' ./Cargo.toml
           cargo update -p sciter-rs --precise 674e07d3066ca9a92ced3816203ab6b652629d1e
+          python3 tools/configure_i686_sodium.py
           cargo build --locked --features inline,vram,hwcodec --release --bins --target ${{ matrix.job.target }}
           mkdir -p ./Release
           mv ./target/${{ matrix.job.target }}/release/rustdesk.exe ./Release/rustdesk.exe
