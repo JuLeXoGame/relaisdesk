@@ -11,7 +11,7 @@ TARGET = 'i686-pc-windows-msvc'
 def configure(root):
     metadata = json.loads(subprocess.check_output(
         ['cargo', 'metadata', '--locked', '--format-version', '1', '--filter-platform', TARGET],
-        cwd=root, text=True,
+        cwd=root, encoding='utf-8',
     ))
     packages = [p for p in metadata['packages'] if p['name'] == 'libsodium-sys']
     if len(packages) != 1 or packages[0]['version'] != '0.2.7' or packages[0]['links'] != 'sodium':
