@@ -1,9 +1,11 @@
-vcpkg_from_git(
-    OUT_SOURCE_PATH SOURCE_PATH
-    URL "https://aomedia.googlesource.com/aom"
-    REF 03087864cf4bea6abb0d28f95cf7843511413d8f
-    FETCH_REF "v${VERSION}"
-    HEAD_REF main
+vcpkg_download_distfile(ARCHIVE
+    URLS "https://storage.googleapis.com/aom-releases/libaom-${VERSION}.tar.gz"
+    FILENAME "libaom-${VERSION}.tar.gz"
+    SHA512 a4c3427db0bb4cd49b8873ffae0a287570b86d6f0733da52798b08470519755ffe08198222be86d3bc8c9bd0052477017dc595b98bbbd77f76bfe7b9ce48d7fa
+)
+
+vcpkg_extract_source_archive(SOURCE_PATH
+    ARCHIVE "${ARCHIVE}"
     PATCHES
         aom-rename-static.diff
         aom-uninitialized-pointer.diff
