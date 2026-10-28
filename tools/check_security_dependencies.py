@@ -34,7 +34,10 @@ def local_patch(manifest, lock, name, path, file, digest):
 
 def check_lock(lock):
     floors = {"openssl": (0, 10, 80), "fuser": (0, 16, 0),
-              "bytes": (1, 11, 1), "idna": (1, 0, 0)}
+              "bytes": (1, 11, 1), "idna": (1, 0, 0),
+              "ctutils": (0, 4, 4), "crypto-bigint": (0, 7, 6),
+              "zstd-safe": (8, 2, 0), "zstd-sys": (2, 1, 2),
+              "tokio": (1, 54, 1)}
     for package in toml(lock)["package"]:
         name, current = package["name"], version(package["version"])
         if name in floors:
@@ -53,6 +56,8 @@ local_patch(root_manifest, ROOT / "Cargo.lock", "atty", "libs/atty-compat", "src
 check_lock(ROOT / "Cargo.lock")
 
 if root_manifest["package"]["name"] == "rustdesk":
+    portable_requirements = (ROOT / "libs/portable/requirements.txt").read_text()
+    require("Brotli==1.2.1" in portable_requirements, "Brotli decoder security fix missing")
     local_patch(root_manifest, ROOT / "Cargo.lock", "glib", "vendor/glib-0.18.5", "src/variant_iter.rs",
                 "1bc30729e0bf70af261afa14bfd26592a726e57b9be48eaffb76cc47a4005582")
     for member in ("libs/portable", "libs/virtual_display"):

@@ -1,5 +1,7 @@
 import os
 import pathlib
+import shutil
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -18,7 +20,10 @@ if sys.argv[1] == '--server':
     state.touch()
     while True:
         time.sleep(0.1)
-if mode == 'reject':
+if mode == 'stubborn':
+    while not state.exists():
+        time.sleep(0.01)
+if mode in ('reject', 'stubborn'):
     print('Changing permanent password was rejected by daemon')
 elif not state.exists():
     print('No such file or directory (os error 2)')
@@ -29,9 +34,18 @@ else:
     print('Done!')
 '''
 
+DELAYED_SETSID = '''#!/usr/bin/env python3
+import os, pathlib, signal, sys, time
+if os.environ['SMOKE_TEST_MODE'] == 'stubborn':
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    pathlib.Path(os.environ['SMOKE_TEST_STATE']).touch()
+time.sleep(30)
+os.execv(os.environ['SMOKE_TEST_SETSID'], ['setsid', *sys.argv[1:]])
+'''
+
 
 class InstalledDebSmokeTests(unittest.TestCase):
-    def run_case(self, mode):
+    def run_case(self, mode, delay_session=False):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
             binary = root / 'rustdesk'
@@ -39,8 +53,22 @@ class InstalledDebSmokeTests(unittest.TestCase):
             binary.chmod(0o700)
             environment = dict(os.environ, RUNNER_TEMP=directory,
                                SMOKE_TEST_STATE=str(root / 'ready'), SMOKE_TEST_MODE=mode)
-            result = subprocess.run(['bash', str(SCRIPT), str(binary)], env=environment,
-                                    text=True, capture_output=True, timeout=8)
+            if delay_session:
+                starter = root / 'setsid'
+                starter.write_text(DELAYED_SETSID)
+                starter.chmod(0o700)
+                environment['SMOKE_TEST_SETSID'] = shutil.which('setsid')
+                environment['PATH'] = str(root) + os.pathsep + environment['PATH']
+            with subprocess.Popen(['bash', str(SCRIPT), str(binary)], env=environment,
+                                  text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  start_new_session=True) as process:
+                try:
+                    stdout, stderr = process.communicate(timeout=8)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate()
+                    raise
+                result = subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
             self.assertFalse(list(root.glob('rustdesk-smoke-*')), 'Temporary password must be removed')
             self.assertNotIn('smoke-test-pass-123', result.stdout + result.stderr)
             return result
@@ -57,6 +85,16 @@ class InstalledDebSmokeTests(unittest.TestCase):
 
     def test_password_rejection_is_not_treated_as_a_readiness_retry(self):
         result = self.run_case('reject')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('rejected by daemon', result.stderr)
+
+    def test_cleanup_does_not_wait_for_session_creation(self):
+        result = self.run_case('reject', delay_session=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('rejected by daemon', result.stderr)
+
+    def test_cleanup_terminates_a_starter_ignoring_sigterm(self):
+        result = self.run_case('stubborn', delay_session=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('rejected by daemon', result.stderr)
 

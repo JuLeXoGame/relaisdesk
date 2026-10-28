@@ -9,7 +9,12 @@ cleanup() {
     result=$?
     trap - EXIT
     if [[ -n $server_pid ]]; then
-        kill -TERM -- "-$server_pid" 2>/dev/null || true
+        kill -TERM -- "-$server_pid" "$server_pid" 2>/dev/null || true
+        for attempt in $(seq 1 20); do
+            kill -0 "$server_pid" 2>/dev/null || break
+            sleep 0.1
+        done
+        kill -KILL -- "-$server_pid" "$server_pid" 2>/dev/null || true
         wait "$server_pid" 2>/dev/null || true
     fi
     if [[ $result != 0 ]]; then cat "$stage/server.log"; fi
