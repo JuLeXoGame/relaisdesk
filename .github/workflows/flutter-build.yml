@@ -1722,20 +1722,13 @@ jobs:
         if: matrix.job.arch == 'x86_64'
         run: |
           set -euo pipefail
+          python3 tests/test_smoke_installed_deb.py
           command -v xvfb-run >/dev/null || { sudo apt-get update -y && sudo apt-get install -y xvfb; }
           deb=$(ls rustdesk-*-x86_64.deb | head -n 1)
-          sudo dpkg -i "$deb" || sudo apt-get install -f -y
-          for i in $(seq 1 30); do
-            sudo systemctl is-active --quiet rustdesk.service && break
-            sleep 2
-          done
+          sudo apt-get install -y "./$deb"
           sudo systemctl is-active --quiet rustdesk.service
-          printf '%s' 'smoke-test-pass-123' > /tmp/relaisdesk-smoke-pw
-          chmod 600 /tmp/relaisdesk-smoke-pw
-          out=$(timeout 120 sudo xvfb-run -a /usr/bin/rustdesk --password-file /tmp/relaisdesk-smoke-pw)
-          echo "$out"
-          echo "$out" | grep -q '^Done!$'
-          rm -f /tmp/relaisdesk-smoke-pw
+          sudo systemctl stop rustdesk.service
+          sudo xvfb-run -a dbus-run-session -- bash tools/smoke-installed-deb.sh
 
       - name: Upload debian/rpm packages
         if: env.UPLOAD_ARTIFACT == 'true'
