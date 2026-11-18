@@ -273,15 +273,14 @@ async fn start_hbbs_sync_async() {
     }
 }
 
+// RelaisDesk: the RelaisDesk API does not implement the RustDesk Pro
+// heartbeat/sysinfo protocol. Device presence, network tokens, Wake-on-LAN and
+// update targets go through /api/v1/devices/heartbeat, sent by the fleet agent.
+// Enabling this sync would only post /api/heartbeat every 15 s and the sysinfo
+// payload (host name, user name, hardware) every 2 min for nothing, so it stays
+// off. An empty URL keeps `is_pro()` false, as with the server's 404 before.
 fn heartbeat_url() -> String {
-    let url = crate::common::get_api_server(
-        Config::get_option("api-server"),
-        Config::get_option("custom-rendezvous-server"),
-    );
-    if url.is_empty() || crate::is_public(&url) {
-        return "".to_owned();
-    }
-    format!("{}/api/heartbeat", url)
+    "".to_owned()
 }
 
 fn handle_config_options(config_options: HashMap<String, String>) {
@@ -404,6 +403,14 @@ fn switch_grant_signed_msg(id: &str, switch_code_verifier: &str, timestamp: &str
     msg.push(0);
     msg.extend_from_slice(timestamp.as_bytes());
     msg
+}
+
+#[cfg(test)]
+mod relaisdesk_tests {
+    #[test]
+    fn test_pro_sync_is_disabled() {
+        assert!(super::heartbeat_url().is_empty());
+    }
 }
 
 #[cfg(all(
